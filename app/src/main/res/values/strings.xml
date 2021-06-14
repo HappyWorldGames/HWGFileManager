@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">HWG File Manager</string>
+    <string name="icon">icon</string>
+    <string name="name">name</string>
 </resources>
