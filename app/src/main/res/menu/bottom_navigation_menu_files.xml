@@ -1,29 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
-<menu xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto">
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item
-        android:id="@+id/page_1"
-        android:icon="@drawable/homepage"
-        android:title="Add"
-        app:showAsAction="always"/>
+        android:id="@+id/add"
+        android:icon="@drawable/add"
+        android:title="@string/add" />
     <item
-        android:id="@+id/page_2"
-        android:icon="@drawable/sd_card"
-        android:title="Remove"
-        app:showAsAction="always"/>
+        android:id="@+id/search"
+        android:icon="@drawable/search"
+        android:title="@string/search" />
     <item
-        android:id="@+id/page_3"
-        android:icon="@drawable/homepage"
-        android:title="Add"
-        app:showAsAction="always"/>
+        android:id="@+id/refresh"
+        android:icon="@drawable/refresh"
+        android:title="@string/refresh" />
     <item
-        android:id="@+id/page_4"
-        android:icon="@drawable/homepage"
-        android:title="Add"
-        app:showAsAction="always"/>
+        android:id="@+id/view"
+        android:icon="@drawable/view_icon"
+        android:title="@string/view" />
     <item
-        android:id="@+id/page_5"
-        android:icon="@drawable/homepage"
-        android:title="Add"
-        app:showAsAction="always"/>
+        android:id="@+id/clip_board"
+        android:icon="@drawable/clip_board"
+        android:title="@string/clipboard" />
 </menu>

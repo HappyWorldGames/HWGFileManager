@@ -1,6 +1,13 @@
 package com.happyworldgames.hwgfilemanager.data
 
+import java.io.File
+
 /*
-    Содержит информацию о вкладке
+    Contains info about tab
  */
-data class TabDataItem(val type: Int = 0, var path: String = "")
+sealed class TabDataItem(open val type: Int) {
+
+    data class HomeTabDataItem(override val type: Int): TabDataItem(type)
+    data class FileTabDataItem(override val type: Int, var path: String, var selectMode: Boolean = false, val selectedItems: HashMap<String, File> = hashMapOf(), val history: ArrayList<String> = arrayListOf(path)) : TabDataItem(type)
+
+}

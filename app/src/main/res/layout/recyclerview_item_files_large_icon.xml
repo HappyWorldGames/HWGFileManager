@@ -26,7 +26,7 @@
         android:layout_height="50dp"
         android:layout_marginLeft="8dp"
         android:layout_marginRight="8dp"
-        android:gravity="center"
+        android:gravity="center|top"
         android:maxLines="2"
         android:text="@string/name"
         android:textAppearance="@style/TextAppearance.AppCompat.Medium"
@@ -40,6 +40,7 @@
         android:layout_width="30dp"
         android:layout_height="30dp"
         android:gravity="bottom|end"
+        android:clickable="false"
         app:layout_constraintBottom_toBottomOf="@id/icon"
         app:layout_constraintRight_toRightOf="@id/icon" />
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -8,6 +8,10 @@
         android:id="@+id/path"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:maxLines="2"
+        android:singleLine="true"
+        android:paddingHorizontal="1dp"
+        android:ellipsize="start"
         app:layout_constraintTop_toTopOf="parent" />
 
     <androidx.recyclerview.widget.RecyclerView
