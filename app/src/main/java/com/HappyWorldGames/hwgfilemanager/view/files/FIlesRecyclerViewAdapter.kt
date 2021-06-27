@@ -11,7 +11,6 @@ import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.snackbar.Snackbar
 import com.happyworldgames.hwgfilemanager.R
 import com.happyworldgames.hwgfilemanager.data.FileUtils
-import com.happyworldgames.hwgfilemanager.data.DataBase
 import com.happyworldgames.hwgfilemanager.data.TabDataItem
 import com.happyworldgames.hwgfilemanager.databinding.RecyclerviewItemFilesLargeIconBinding
 import kotlinx.coroutines.CoroutineScope
@@ -26,15 +25,9 @@ class FilesRecyclerViewAdapter(private val backButton: Button, var tabPosition: 
 
     private lateinit var parentView: View
     private lateinit var context: Context
-    init {
-        backButton.setOnClickListener {
-            if(!isSelectMode()) goTo(getFilePath().parentFile!!)
-            else switchSelectMode(false)
-        }
-    }
 
-    fun isSelectMode(): Boolean = getDataItem().selectMode
-    private fun getFilePath(): File = File(getDataItem().path)
+    fun getMode(): TabDataItem.FileTabDataItem.Mode = getDataItem().mode
+    fun getFilePath(): File = File(getDataItem().path)
     private fun getDataItem() : TabDataItem.FileTabDataItem = FileUtils.getDataItemFromIndex(tabPosition)
     /*
         Function for open file or directory
@@ -47,18 +40,19 @@ class FilesRecyclerViewAdapter(private val backButton: Button, var tabPosition: 
                 backButton.text = (path.parentFile!!.name + "/" + path.name)
                 notifyDataSetChanged()
                 if(!goBack) getDataItem().history.add(path.absolutePath)
-            }else Snackbar.make(parentView, "Can`t read.", Snackbar.LENGTH_SHORT).show()
+            }else onSwitchSelectMode.showSnackBar("Can`t read.", Snackbar.LENGTH_SHORT)
         }else if(path.isFile) {
-            val intent = Intent().setDataAndType(FileUtils.getUriFromFile(parentView.context, path), FileUtils.getMimeType(path.absolutePath)).setAction(Intent.ACTION_VIEW).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            val intent = Intent().setDataAndType(FileUtils.getUriFromFile(parentView.context, path), FileUtils.getMimeType(path.absolutePath)).setAction(Intent.ACTION_VIEW).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             parentView.context.startActivity(Intent.createChooser(intent, "Select a file"))
         }
-        switchSelectMode(false)
+        switchMode(TabDataItem.FileTabDataItem.Mode.None)
     }
-    fun switchSelectMode(turnOn: Boolean) {
-        if(isSelectMode() == turnOn) return
-        getDataItem().selectMode = turnOn
-        if(turnOn) getDataItem().selectedItems.clear()
-        onSwitchSelectMode.onSwitch(turnOn)
+    fun switchMode(mode: TabDataItem.FileTabDataItem.Mode) {
+        if(getMode() == mode) return
+        getDataItem().mode = mode
+        if(mode == TabDataItem.FileTabDataItem.Mode.Select) getDataItem().selectedItems.clear()
+        else if(mode == TabDataItem.FileTabDataItem.Mode.Search) getDataItem().searchItems.clear()
+        onSwitchSelectMode.onSwitch(mode)
         notifyDataSetChanged()
     }
 
@@ -69,18 +63,15 @@ class FilesRecyclerViewAdapter(private val backButton: Button, var tabPosition: 
         return IconViewHolder(itemView)
     }
 
-    /*
-        *Need Replace
-     */
     override fun getItemViewType(position: Int): Int {
-        return R.layout.recyclerview_item_files_large_icon
+        return if(getDataItem().viewType == TabDataItem.FileTabDataItem.ViewType.Grid) R.layout.recyclerview_item_files_large_icon else R.layout.recyclerview_item_files_list
     }
 
     override fun onBindViewHolder(holder: MyViewHolder, position: Int) {
         holder.bind(position)
     }
 
-    override fun getItemCount(): Int = if(getFilePath().exists()) getFilePath().listFiles()!!.size else 0
+    override fun getItemCount(): Int = if(getFilePath().exists()&&getMode() != TabDataItem.FileTabDataItem.Mode.Search) getFilePath().listFiles()!!.size else getDataItem().searchItems.size
 
     inner class IconViewHolder(itemView: View) : MyViewHolder(itemView){
         private val recyclerviewItemFilesLargeIconBinding: RecyclerviewItemFilesLargeIconBinding = RecyclerviewItemFilesLargeIconBinding.bind(itemView)
@@ -88,7 +79,7 @@ class FilesRecyclerViewAdapter(private val backButton: Button, var tabPosition: 
 
         init {
             recyclerviewItemFilesLargeIconBinding.root.setOnClickListener {
-                if(!isSelectMode()) goTo(fileInfo)
+                if(getMode() != TabDataItem.FileTabDataItem.Mode.Select) goTo(fileInfo)
                 else{
                     val dataItem = getDataItem()
                     if(dataItem.selectedItems.containsKey(fileInfo.absolutePath)) dataItem.selectedItems.remove(fileInfo.absolutePath)
@@ -99,7 +90,7 @@ class FilesRecyclerViewAdapter(private val backButton: Button, var tabPosition: 
                 }
             }
             recyclerviewItemFilesLargeIconBinding.root.setOnLongClickListener {
-                switchSelectMode(true)
+                switchMode(TabDataItem.FileTabDataItem.Mode.Select)
 
                 val dataItem = getDataItem()
                 dataItem.selectedItems[fileInfo.absolutePath] = fileInfo
@@ -110,10 +101,10 @@ class FilesRecyclerViewAdapter(private val backButton: Button, var tabPosition: 
         }
 
         override fun bind(position: Int) {
-            if(isSelectMode()) recyclerviewItemFilesLargeIconBinding.select.visibility = View.VISIBLE
+            if(getMode() == TabDataItem.FileTabDataItem.Mode.Select) recyclerviewItemFilesLargeIconBinding.select.visibility = View.VISIBLE
             else recyclerviewItemFilesLargeIconBinding.select.visibility = View.GONE
             launch(Dispatchers.IO) {
-                fileInfo = FileUtils.sort(getFilePath().listFiles()!!)[position]
+                fileInfo = if(getFilePath().exists()&&getMode() != TabDataItem.FileTabDataItem.Mode.Search) FileUtils.sort(getFilePath().listFiles()!!)[position] else getDataItem().searchItems[position]
 
                 if(fileInfo.name.startsWith(".")) recyclerviewItemFilesLargeIconBinding.icon.alpha = 0.5f
                 else recyclerviewItemFilesLargeIconBinding.icon.alpha = 1f
@@ -144,7 +135,8 @@ class FilesRecyclerViewAdapter(private val backButton: Button, var tabPosition: 
     }
 
     abstract class SwitchSelectModeListener {
-        abstract fun onSwitch(switched: Boolean)
+        abstract fun onSwitch(mode: TabDataItem.FileTabDataItem.Mode)
         abstract fun onEnableOrDisableBottomAppBar(enable: Boolean)
+        abstract fun showSnackBar(text: String, length: Int)
     }
 }

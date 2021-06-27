@@ -1,25 +1,35 @@
 package com.happyworldgames.hwgfilemanager.data
 
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
+import android.media.MediaMetadataRetriever
 import android.media.ThumbnailUtils
+import android.media.ThumbnailUtils.OPTIONS_RECYCLE_INPUT
+import android.media.ThumbnailUtils.extractThumbnail
 import android.net.Uri
 import android.os.Build
-import android.provider.MediaStore
 import android.util.Size
 import android.webkit.MimeTypeMap
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import com.happyworldgames.hwgfilemanager.R
 import java.io.File
+import java.util.*
+import kotlin.collections.ArrayList
+import kotlin.math.roundToInt
 
 class FileUtils {
 
     companion object {
+        private const val TARGET_SIZE_MICRO_THUMBNAIL = 96
+        private const val MINI_KIND = 1
+        private const val MICRO_KIND = 3
+
         private const val SIZE_MINI_KIND_WIDTH = 512
         private const val SIZE_MINI_KIND_HEIGHT = 384
 
@@ -50,6 +60,32 @@ class FileUtils {
             if(dataItem !is TabDataItem.FileTabDataItem) throw Throwable("Is not FileTabDataItem")
             return dataItem
         }
+
+        fun getSizeFile(file: File): Long {
+            return if(file.isFile) file.length()
+            else{
+                var size: Long = 0
+                file.listFiles()!!.forEach {
+                    size += getSizeFile(it)
+                }
+                size
+            }
+        }
+        fun convertLongToTime(time: Long): String {
+            val date = Date(time)
+            val cal = Calendar.getInstance()
+            cal.time = date
+
+            return "${cal.get(Calendar.MONTH)+1}/${cal.get(Calendar.DAY_OF_MONTH)}/${cal.get(Calendar.YEAR)} ${cal.get(Calendar.HOUR)}:${cal.get(Calendar.MINUTE)}:${cal.get(Calendar.SECOND)}"
+        }
+
+        fun search(path: File, search: String, onNotify: (file: File) -> Unit) {
+            if(path.isFile && path.name.contains(search)) onNotify(path)
+            else if(path.isDirectory) path.listFiles()!!.forEach {
+                search(it, search, onNotify)
+            }
+        }
+
         fun copy(index: Int) {
             DataBase.clipBoardBase.add(ClipBoardData(ClipBoardData.Type.COPY, getDataItemFromIndex(index).selectedItems.toMap()))
         }
@@ -72,10 +108,31 @@ class FileUtils {
             }
         }
         private fun delete(file: File) {
-            if(file.isDirectory) file.listFiles().forEach {
+            if(file.isDirectory) file.listFiles()!!.forEach {
                 delete(it)
             }
             file.delete()
+        }
+
+        fun shareMultiple(context: Context, files: List<File>) {
+            val multi = files.size > 1 || files[0].isDirectory
+            val intent = Intent(if(multi) Intent.ACTION_SEND_MULTIPLE else Intent.ACTION_SEND)
+            if(multi) {
+                val uris: ArrayList<Uri> = ArrayList()
+                for (file in files) {
+                    addShareMultipleList(context, file, uris)
+                }
+                intent.putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
+            }else intent.data = getUriFromFile(context, files[0])
+            intent.type = "*/*"
+            context.startActivity(Intent.createChooser(intent, "Share:"))
+        }
+        private fun addShareMultipleList(context: Context, file: File, uris: ArrayList<Uri>) {
+            if(uris.size > 100) throw Throwable("Many items (>100)")
+            if(file.isDirectory) file.listFiles()!!.forEach {
+                addShareMultipleList(context, it, uris)
+            }
+            else uris.add(getUriFromFile(context, file))
         }
 
         fun checkIfFileHasExtension(name: String, extensions: Array<String>): Boolean {
@@ -90,7 +147,46 @@ class FileUtils {
         }
         fun createVideoThumbnailUtils(file: File): Bitmap {
             return if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) ThumbnailUtils.createVideoThumbnail(file, Size(SIZE_MINI_KIND_WIDTH, SIZE_MINI_KIND_HEIGHT), null)
-                else ThumbnailUtils.createVideoThumbnail(file.absolutePath, MediaStore.Images.Thumbnails.MINI_KIND)!!
+                else createVideoThumbnail(file.absolutePath, MINI_KIND) ?: throw Throwable("Image null")
+        }
+        private fun createVideoThumbnail(filePath: String?, kind: Int): Bitmap? {
+            var bitmap: Bitmap? = null
+            val retriever = MediaMetadataRetriever()
+            try {
+                retriever.setDataSource(filePath)
+                bitmap = retriever.getFrameAtTime(-1)
+            } catch (ex: IllegalArgumentException) {
+                // Assume this is a corrupt video file
+            } catch (ex: RuntimeException) {
+                // Assume this is a corrupt video file.
+            } finally {
+                try {
+                    retriever.release()
+                } catch (ex: RuntimeException) {
+                    // Ignore failures while cleaning up.
+                }
+            }
+            if (bitmap == null) return null
+            if (kind == MINI_KIND) {
+                // Scale down the bitmap if it's too large.
+                val width = bitmap.width
+                val height = bitmap.height
+                val max = width.coerceAtLeast(height)
+                if (max > 512) {
+                    val scale = 512f / max
+                    val w = (scale * width).roundToInt()
+                    val h = (scale * height).roundToInt()
+                    bitmap = Bitmap.createScaledBitmap(bitmap, w, h, true)
+                }
+            } else if (kind == MICRO_KIND) {
+                bitmap = extractThumbnail(
+                    bitmap,
+                    TARGET_SIZE_MICRO_THUMBNAIL,
+                    TARGET_SIZE_MICRO_THUMBNAIL,
+                    OPTIONS_RECYCLE_INPUT
+                )
+            }
+            return bitmap
         }
         fun createAudioThumbnailUtils(file: File): Bitmap {
             return if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) ThumbnailUtils.createAudioThumbnail(file, Size(SIZE_MINI_KIND_WIDTH, SIZE_MINI_KIND_HEIGHT), null)

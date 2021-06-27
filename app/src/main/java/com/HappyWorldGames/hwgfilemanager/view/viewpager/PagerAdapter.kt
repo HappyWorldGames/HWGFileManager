@@ -4,15 +4,17 @@ import android.content.Context
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
 import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.happyworldgames.hwgfilemanager.data.DataBase
+import com.happyworldgames.hwgfilemanager.data.FileUtils
 import com.happyworldgames.hwgfilemanager.data.TabDataItem
 import com.happyworldgames.hwgfilemanager.databinding.ViewPagerFilesItemBinding
 import com.happyworldgames.hwgfilemanager.view.files.FilesRecyclerViewAdapter
-import java.io.File
 
-class PagerAdapter(private val context: Context, val onSwitchSelectModeListener: FilesRecyclerViewAdapter.SwitchSelectModeListener): RecyclerView.Adapter<PagerAdapter.MyViewHolder>(){
+class PagerAdapter(private val context: Context, private val pathButton: Button, val onSwitchSelectModeListener: FilesRecyclerViewAdapter.SwitchSelectModeListener): RecyclerView.Adapter<PagerAdapter.MyViewHolder>(){
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MyViewHolder  =
         FilesPageHolder(LayoutInflater.from(context).inflate(viewType, parent, false))
@@ -29,15 +31,12 @@ class PagerAdapter(private val context: Context, val onSwitchSelectModeListener:
         val viewPagerFilesItemBinding: ViewPagerFilesItemBinding = ViewPagerFilesItemBinding.bind(itemView)
 
         init {
-            viewPagerFilesItemBinding.filesList.layoutManager = GridLayoutManager(context, 4)
-            viewPagerFilesItemBinding.filesList.adapter = FilesRecyclerViewAdapter(viewPagerFilesItemBinding.path, onSwitchSelectMode = onSwitchSelectModeListener)
+            viewPagerFilesItemBinding.filesList.adapter = FilesRecyclerViewAdapter(pathButton, onSwitchSelectMode = onSwitchSelectModeListener)
         }
 
         override fun bind(position: Int) {
-            val path = File((DataBase.tabsBase[position] as TabDataItem.FileTabDataItem).path)
-            viewPagerFilesItemBinding.path.text = (path.parentFile!!.name + "/" + path.name)
-
             (viewPagerFilesItemBinding.filesList.adapter as FilesRecyclerViewAdapter).tabPosition = position
+            viewPagerFilesItemBinding.filesList.layoutManager = if(FileUtils.getDataItemFromIndex(position).viewType == TabDataItem.FileTabDataItem.ViewType.Linear) LinearLayoutManager(context) else GridLayoutManager(context, 4)
             viewPagerFilesItemBinding.filesList.adapter?.notifyDataSetChanged()
         }
     }

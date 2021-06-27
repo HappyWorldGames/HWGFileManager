@@ -16,7 +16,7 @@ import com.happyworldgames.hwgfilemanager.R
  */
 class DataBase(){
     companion object {
-        val tabsBase: ArrayList<TabDataItem> = arrayListOf(TabDataItem.FileTabDataItem(R.layout.view_pager_files_item, "/sdcard"), TabDataItem.FileTabDataItem(R.layout.view_pager_files_item, "/sdcard/Download"))
+        val tabsBase: ArrayList<TabDataItem> = arrayListOf(TabDataItem.FileTabDataItem(R.layout.view_pager_files_item, "/sdcard", TabDataItem.FileTabDataItem.ViewType.Grid), TabDataItem.FileTabDataItem(R.layout.view_pager_files_item, "/sdcard/Download", TabDataItem.FileTabDataItem.ViewType.Grid))
         val clipBoardBase: ArrayList<ClipBoardData> = arrayListOf()
     }
 }
