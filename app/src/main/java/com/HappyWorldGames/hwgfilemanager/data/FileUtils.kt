@@ -18,8 +18,10 @@ import android.webkit.MimeTypeMap
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import com.happyworldgames.hwgfilemanager.R
-import java.io.File
+import java.io.*
 import java.util.*
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 import kotlin.collections.ArrayList
 import kotlin.math.roundToInt
 
@@ -61,14 +63,19 @@ class FileUtils {
             return dataItem
         }
 
-        fun getSizeFile(file: File): Long {
-            return if(file.isFile) file.length()
+        fun getSizeAndCountFiles(file: File): Triple<Long, Long, Long> {
+            return if(file.isFile) Triple(file.length(), 1, 0)
             else{
                 var size: Long = 0
+                var countFile: Long = 0
+                var countFolder: Long = 1
                 file.listFiles()!!.forEach {
-                    size += getSizeFile(it)
+                    val (one, two, three) = getSizeAndCountFiles(it)
+                    size += one
+                    countFile += two
+                    countFolder += three
                 }
-                size
+                Triple(size, countFile, countFolder)
             }
         }
         fun convertLongToTime(time: Long): String {
@@ -78,11 +85,46 @@ class FileUtils {
 
             return "${cal.get(Calendar.MONTH)+1}/${cal.get(Calendar.DAY_OF_MONTH)}/${cal.get(Calendar.YEAR)} ${cal.get(Calendar.HOUR)}:${cal.get(Calendar.MINUTE)}:${cal.get(Calendar.SECOND)}"
         }
+        fun humanReadableByteCountBin(bytes: Long) = when {
+            bytes == Long.MIN_VALUE || bytes < 0 -> "N/A"
+            bytes < 1024L -> "$bytes B"
+            bytes <= 0xfffccccccccccccL shr 40 -> "%.2f KiB".format(bytes.toDouble() / (0x1 shl 10))
+            bytes <= 0xfffccccccccccccL shr 30 -> "%.2f MiB".format(bytes.toDouble() / (0x1 shl 20))
+            bytes <= 0xfffccccccccccccL shr 20 -> "%.2f GiB".format(bytes.toDouble() / (0x1 shl 30))
+            bytes <= 0xfffccccccccccccL shr 10 -> "%.2f TiB".format(bytes.toDouble() / (0x1 shl 40))
+            bytes <= 0xfffccccccccccccL -> "%.2f PiB".format((bytes shr 10).toDouble() / (0x1 shl 40))
+            else -> "%.2f EiB".format((bytes shr 20).toDouble() / (0x1 shl 40))
+        }
 
         fun search(path: File, search: String, onNotify: (file: File) -> Unit) {
             if(path.isFile && path.name.contains(search)) onNotify(path)
             else if(path.isDirectory) path.listFiles()!!.forEach {
                 search(it, search, onNotify)
+            }
+        }
+        fun zip(files: List<File>, zipFile: File) {
+            ZipOutputStream(BufferedOutputStream(FileOutputStream(zipFile))).use { output ->
+                files.forEach { file ->
+                    zipFile(file, file.name, output)
+                }
+            }
+        }
+        private fun zipFile(fileToZip: File, fileName: String, zipOut: ZipOutputStream) {
+            if(fileToZip.isDirectory) {
+                zipOut.putNextEntry(ZipEntry(if(fileName.endsWith("/")) fileName else "$fileName/"));
+                zipOut.closeEntry();
+
+                fileToZip.listFiles()?.forEach { childFile ->
+                    zipFile(childFile, fileName + "/" + childFile.name, zipOut)
+                }
+                return
+            }
+            FileInputStream(fileToZip).use { input ->
+                BufferedInputStream(input).use { origin ->
+                    val entry = ZipEntry(fileName)
+                    zipOut.putNextEntry(entry)
+                    origin.copyTo(zipOut, 1024)
+                }
             }
         }
 
@@ -112,6 +154,10 @@ class FileUtils {
                 delete(it)
             }
             file.delete()
+        }
+        fun rename(file: File, newName: String) {
+            val newFile = File(file.parentFile?.absolutePath, newName)
+            file.renameTo(newFile)
         }
 
         fun shareMultiple(context: Context, files: List<File>) {

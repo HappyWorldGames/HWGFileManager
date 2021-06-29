@@ -12,7 +12,6 @@ import android.view.MenuItem
 import android.view.View
 import android.widget.EditText
 import android.widget.PopupMenu
-import android.widget.TextView
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.view.ActionMode
@@ -22,13 +21,14 @@ import androidx.core.view.get
 import androidx.core.widget.doAfterTextChanged
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
-import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.tabs.TabLayoutMediator
 import com.happyworldgames.hwgfilemanager.data.DataBase
 import com.happyworldgames.hwgfilemanager.data.FileUtils
 import com.happyworldgames.hwgfilemanager.data.TabDataItem
 import com.happyworldgames.hwgfilemanager.databinding.ActivityMainBinding
+import com.happyworldgames.hwgfilemanager.databinding.AlertDialogRenameBinding
+import com.happyworldgames.hwgfilemanager.view.BottomMenuController
 import com.happyworldgames.hwgfilemanager.view.files.FilesRecyclerViewAdapter
 import com.happyworldgames.hwgfilemanager.view.viewpager.PagerAdapter
 import kotlinx.coroutines.*
@@ -43,8 +43,8 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
 
     private var previousMenuIdBottomAppBar = -1
 
-    private val activityMain by lazy{ ActivityMainBinding.inflate(layoutInflater) }
-    private val bottomSheetBehavior by lazy { BottomSheetBehavior.from(activityMain.clipboardMenu) }
+    val activityMain by lazy{ ActivityMainBinding.inflate(layoutInflater) }
+    private val bottomMenuController by lazy { BottomMenuController(this) }
     private val adapter by lazy { PagerAdapter(this, activityMain.pathButton, switchSelectModeListener)  }
     private val switchSelectModeListener = object : FilesRecyclerViewAdapter.SwitchSelectModeListener() {
         override fun onSwitch(mode: TabDataItem.FileTabDataItem.Mode) {
@@ -150,7 +150,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
         super.onCreate(savedInstanceState)
 
         setContentView(activityMain.root)
-        openOrCloseClipBoardMenu(false)
+        bottomMenuController.openOrClose(false)
         setSupportActionBar(activityMain.toolbar)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) requestPermissions(arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE, android.Manifest.permission.WRITE_EXTERNAL_STORAGE), 1)
@@ -189,7 +189,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
                     R.id.search -> showOrHideSearch()
                     R.id.refresh -> refreshCurrentItem()
                     R.id.view -> switchViewCurrentItem()
-                    R.id.clip_board -> openOrCloseClipBoardMenu(true)
+                    R.id.clip_board -> openOrCloseClipBoardMenu()
                 }
                 R.menu.bottom_navigation_menu_files_edit -> {
                     when (it.itemId) {
@@ -200,17 +200,11 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
                         R.id.more -> showPopupMenuMore()
                     }
                     when (it.itemId) {
-                        R.id.copy, R.id.cut -> { getCurrentFileManagerAdapter().switchMode(TabDataItem.FileTabDataItem.Mode.None); refreshCurrentItem() }
+                        R.id.copy, R.id.cut -> getCurrentFileManagerAdapter().switchMode(TabDataItem.FileTabDataItem.Mode.None)
                     }
                 }
                 R.menu.bottom_navigation_menu_homepager -> TODO()
             }
-            true
-        }
-        activityMain.clipboardMenu.setNavigationItemSelectedListener {
-            Thread{ FileUtils.paste(getCurrentPosition(), it.itemId) }.start()
-            openOrCloseClipBoardMenu(false)
-
             true
         }
 
@@ -223,9 +217,6 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
 
         activityMain.closeTab.setOnClickListener {
             backOrCloseTab(null)
-        }
-        activityMain.scrim.setOnClickListener {
-            openOrCloseClipBoardMenu(false)
         }
         activityMain.pathButton.setOnClickListener {
             val fileManagerAdapter = getCurrentFileManagerAdapter()
@@ -277,7 +268,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
 
     private fun getFileManagerAdapter(index: Int): FilesRecyclerViewAdapter = (((activityMain.pager[0] as RecyclerView).findViewHolderForAdapterPosition(index) as PagerAdapter.FilesPageHolder).viewPagerFilesItemBinding.filesList.adapter as FilesRecyclerViewAdapter)
     private fun getCurrentFileManagerAdapter(): FilesRecyclerViewAdapter = getFileManagerAdapter(getCurrentPosition())
-    private fun getCurrentPosition(): Int = activityMain.pager.currentItem
+    fun getCurrentPosition(): Int = activityMain.pager.currentItem
 
     fun replaceBottomAppBar(idMenu: Int) = launch(Dispatchers.Main) {
         if(previousMenuIdBottomAppBar != idMenu) {
@@ -344,7 +335,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
                 override fun onClick(dialog: DialogInterface?, which: Int) {
                     if(editName.text.toString() == "" || DataBase.tabsBase[getCurrentPosition()] !is TabDataItem.FileTabDataItem) return
 
-                    val file = File((DataBase.tabsBase[getCurrentPosition()] as TabDataItem.FileTabDataItem).path, editName.text.toString())
+                    val file = File(FileUtils.getDataItemFromIndex(getCurrentPosition()).path, editName.text.toString())
                     if(!file.parentFile!!.canWrite()) return
 
                     if(isFile) file.createNewFile()
@@ -370,18 +361,10 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
 
         refreshCurrentItem()
     }
-    private fun openOrCloseClipBoardMenu(open: Boolean) {
-        val menu = activityMain.clipboardMenu.menu
-        menu.clear()
-        DataBase.clipBoardBase.forEachIndexed { index, boardData ->
-            val calendar = boardData.time
-            menu.add(0, index, 0, "Files ${boardData.files.size} Time:${calendar.get(Calendar.HOUR)}:${calendar.get(Calendar.MINUTE)}:${calendar.get(Calendar.SECOND)}")
-        }
-        if(menu.size() <= 0) menu.add("No elements").isEnabled = false
-
-        bottomSheetBehavior.state = if(open) BottomSheetBehavior.STATE_EXPANDED else BottomSheetBehavior.STATE_HIDDEN
-        activityMain.scrim.visibility = if(open) View.VISIBLE else View.GONE
+    private fun openOrCloseClipBoardMenu() {
+        bottomMenuController.showClipBoardMenu()
     }
+
     private fun showAlertDelete() {
         AlertDialog.Builder(this).apply {
             setTitle("Delete Files")
@@ -395,31 +378,36 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
     }
     private fun showAlertRename() {
         val builder = AlertDialog.Builder(this)
-        val oldFile = FileUtils.getDataItemFromIndex(getCurrentPosition()).selectedItems.values.elementAt(0)
 
-        val editName = EditText(this)
-        editName.apply {
+        val selectedItems = FileUtils.getDataItemFromIndex(getCurrentPosition()).selectedItems.values.toList()
+        val multi = selectedItems.size > 1
+        if(multi) return
+
+        val layout: View = if(multi) AlertDialogRenameBinding.inflate(layoutInflater).apply {
+            TODO()
+        }.root else EditText(this).apply {
             hint = "Enter Name"
-            setText(oldFile.name)
+            setText(selectedItems[0].name)
             inputType = InputType.TYPE_CLASS_TEXT
             maxLines = 1
         }
         builder.apply {
-            setTitle("Rename")
-            setView(editName)
-            setPositiveButton("Rename", object : DialogInterface.OnClickListener {
-                override fun onClick(dialog: DialogInterface?, which: Int) {
-                    if(editName.text.toString() == "" || DataBase.tabsBase[getCurrentPosition()] !is TabDataItem.FileTabDataItem) return
-
-                    val file = File((DataBase.tabsBase[getCurrentPosition()] as TabDataItem.FileTabDataItem).path, editName.text.toString())
-                    if(!file.parentFile!!.canWrite()) return
-
-                    oldFile.renameTo(file)
-
-                    getCurrentFileManagerAdapter().switchMode(TabDataItem.FileTabDataItem.Mode.None)
-                    refreshCurrentItem()
+            setTitle(if(!multi) "Rename" else "Batch Rename")
+            setView(layout)
+            setPositiveButton("Rename") { _, _ ->
+                if (multi) {
+                    TODO()
+                } else {
+                    val editName = layout as EditText
+                    if (editName.text.toString() != "") FileUtils.rename(
+                        selectedItems[0],
+                        editName.text.toString()
+                    )
                 }
-            })
+
+                getCurrentFileManagerAdapter().switchMode(TabDataItem.FileTabDataItem.Mode.None)
+                refreshCurrentItem()
+            }
             setNegativeButton("Cancel", null)
         }
         builder.show()
@@ -431,8 +419,8 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) gravity = Gravity.END
             setOnMenuItemClickListener {
                 when(it.itemId) {
-                    R.id.share -> try{ FileUtils.shareMultiple(this@MainActivity, FileUtils.getDataItemFromIndex(getCurrentPosition()).selectedItems.values.toList()) }catch (e: Throwable) { switchSelectModeListener.showSnackBar(if(e.toString().contains("Many items (>100)")) "Many items (>100)" else e.toString(), Snackbar.LENGTH_LONG) }
-                    R.id.compress -> TODO()
+                    R.id.share -> showShare()
+                    R.id.compress -> showCompress()
                     R.id.properties -> showProperties()
                 }
                 true
@@ -465,39 +453,21 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
 
         popup.show()
     }
-    private fun showProperties() {
-        val menu = activityMain.clipboardMenu.menu
-        menu.clear()
-        val fileList = FileUtils.getDataItemFromIndex(getCurrentPosition()).selectedItems.values.toList()
-        /*fileList.forEachIndexed { index, file ->
-            menu.add(0, index, 0, "File ${FileUtils.getSizeFile(file)} bytes")
-        }*/
-        val file = fileList[0]
 
-        val nameView = TextView(this)
-        nameView.apply {
-            text = file.name
-            gravity = Gravity.CENTER
-            if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) setTextAppearance(R.style.TextAppearance_AppCompat_Large)
-            else setTextAppearance(this@MainActivity, R.style.TextAppearance_AppCompat_Large)
+    private fun showShare() {
+        try{
+            FileUtils.shareMultiple(this@MainActivity, FileUtils.getDataItemFromIndex(getCurrentPosition()).selectedItems.values.toList())
+        }catch (e: Throwable) {
+            switchSelectModeListener.showSnackBar(if(e.toString().contains("Many items (>100)")) "Many items (>100)" else e.toString(), Snackbar.LENGTH_LONG)
         }
+    }
+    private fun showCompress() {
+        val dataItem = FileUtils.getDataItemFromIndex(getCurrentPosition())
+        FileUtils.zip(dataItem.selectedItems.values.toList(), File(dataItem.path, "archive.zip"))
 
-        menu.add(0, 1, 0, "").actionView = nameView
-
-        menu.add(0, 1, 0, "Type: ${if(file.isFile) "File" else "Directory"}")
-        menu.add(0, 1, 0, "Path: ${file.absolutePath}")
-
-        menu.add(0, 1, 0, "Size: ${FileUtils.getSizeFile(file)} bytes")
-
-        menu.add(0, 1, 0, "Modified: ${FileUtils.convertLongToTime(file.lastModified())}")
-
-        menu.add(0, 1, 0, "Readable: ${file.canRead()}")
-        menu.add(0, 1, 0, "Writable: ${file.canWrite()}")
-        menu.add(0, 1, 0, "Hidden: ${file.isHidden}")
-
-        if(menu.size() <= 0) menu.add("No elements").isEnabled = false
-
-        bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
-        activityMain.scrim.visibility = View.VISIBLE
+        getCurrentFileManagerAdapter().switchMode(TabDataItem.FileTabDataItem.Mode.None)
+    }
+    private fun showProperties() {
+        bottomMenuController.showProperties()
     }
 }
