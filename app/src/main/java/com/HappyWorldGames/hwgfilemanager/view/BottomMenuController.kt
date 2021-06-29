@@ -9,9 +9,11 @@ import com.happyworldgames.hwgfilemanager.MainActivity
 import com.happyworldgames.hwgfilemanager.R
 import com.happyworldgames.hwgfilemanager.data.DataBase
 import com.happyworldgames.hwgfilemanager.data.FileUtils
+import com.happyworldgames.hwgfilemanager.data.TabDataItem
+import java.io.File
 import java.util.*
 
-class BottomMenuController(val mainActivity: MainActivity) {
+class BottomMenuController(private val mainActivity: MainActivity) {
     private val bottomMenu = mainActivity.activityMain.bottomMenu
     private val scrim = mainActivity.activityMain.scrim
     private val bottomSheetBehavior = BottomSheetBehavior.from(bottomMenu)
@@ -88,5 +90,17 @@ class BottomMenuController(val mainActivity: MainActivity) {
         if(menu.size() <= 0) menu.add("No elements").isEnabled = false
 
         openOrClose(true)
+    }
+    fun showCompress() {
+        val dataItem = FileUtils.getDataItemFromIndex(mainActivity.getCurrentPosition())
+        FileUtils.zip(dataItem.selectedItems.values.toList(), File(dataItem.path, "archive.zip"))
+
+        mainActivity.getCurrentFileManagerAdapter().switchMode(TabDataItem.FileTabDataItem.Mode.None)
+    }
+    fun showUnCompress() {
+        val dataItem = FileUtils.getDataItemFromIndex(mainActivity.getCurrentPosition())
+        FileUtils.unZip(dataItem.selectedItems.values.toList()[0], File(dataItem.path, "unArchive"))
+
+        mainActivity.getCurrentFileManagerAdapter().switchMode(TabDataItem.FileTabDataItem.Mode.None)
     }
 }

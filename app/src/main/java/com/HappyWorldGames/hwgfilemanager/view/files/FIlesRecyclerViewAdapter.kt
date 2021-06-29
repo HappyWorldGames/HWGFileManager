@@ -121,6 +121,7 @@ class FilesRecyclerViewAdapter(private val backButton: Button, var tabPosition: 
                     FileUtils.checkIfFileHasExtension(fileInfo.name, FileUtils.audioExtensions) -> try{ FileUtils.createAudioThumbnailUtils(fileInfo) }catch(e: Throwable){ FileUtils.drawableToBitmap(ContextCompat.getDrawable(context, R.drawable.audio)) }
                     FileUtils.checkIfFileHasExtension(fileInfo.name, FileUtils.textExtensions) -> FileUtils.createTextThumbnailUtils(parentView.context)
                     FileUtils.checkIfFileHasExtension(fileInfo.name, FileUtils.apkExtensions) -> try{ FileUtils.createApkThumbnailUtils(parentView.context, fileInfo) }catch(e: Throwable){ FileUtils.drawableToBitmap(ContextCompat.getDrawable(context, R.drawable.apk)) }
+                    FileUtils.checkIfFileHasExtension(fileInfo.name, FileUtils.archiveExtensions) -> FileUtils.drawableToBitmap(ContextCompat.getDrawable(parentView.context, R.drawable.archive))
                     else -> null
                 }
                 if(image != null) launch(Dispatchers.Main){ recyclerviewItemFilesLargeIconBinding.icon.setImageBitmap(image) }

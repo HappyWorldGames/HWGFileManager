@@ -267,7 +267,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
     }
 
     private fun getFileManagerAdapter(index: Int): FilesRecyclerViewAdapter = (((activityMain.pager[0] as RecyclerView).findViewHolderForAdapterPosition(index) as PagerAdapter.FilesPageHolder).viewPagerFilesItemBinding.filesList.adapter as FilesRecyclerViewAdapter)
-    private fun getCurrentFileManagerAdapter(): FilesRecyclerViewAdapter = getFileManagerAdapter(getCurrentPosition())
+    fun getCurrentFileManagerAdapter(): FilesRecyclerViewAdapter = getFileManagerAdapter(getCurrentPosition())
     fun getCurrentPosition(): Int = activityMain.pager.currentItem
 
     fun replaceBottomAppBar(idMenu: Int) = launch(Dispatchers.Main) {
@@ -416,11 +416,16 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
         val popup = PopupMenu(this, activityMain.bottomAppBar)
         popup.apply {
             inflate(R.menu.popup_menu_files_edit_more)
+
+            val selectItems = FileUtils.getDataItemFromIndex(getCurrentPosition()).selectedItems.values.toList()
+            if(selectItems.size == 1 && FileUtils.checkIfFileHasExtension(selectItems[0].name, FileUtils.archiveExtensions)) menu.findItem(R.id.uncompress).isVisible = true
+
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) gravity = Gravity.END
             setOnMenuItemClickListener {
                 when(it.itemId) {
                     R.id.share -> showShare()
                     R.id.compress -> showCompress()
+                    R.id.uncompress -> showUnCompress()
                     R.id.properties -> showProperties()
                 }
                 true
@@ -462,10 +467,10 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
         }
     }
     private fun showCompress() {
-        val dataItem = FileUtils.getDataItemFromIndex(getCurrentPosition())
-        FileUtils.zip(dataItem.selectedItems.values.toList(), File(dataItem.path, "archive.zip"))
-
-        getCurrentFileManagerAdapter().switchMode(TabDataItem.FileTabDataItem.Mode.None)
+        bottomMenuController.showCompress()
+    }
+    private fun showUnCompress() {
+        bottomMenuController.showUnCompress()
     }
     private fun showProperties() {
         bottomMenuController.showProperties()

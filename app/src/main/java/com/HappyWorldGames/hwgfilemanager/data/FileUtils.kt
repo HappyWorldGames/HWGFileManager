@@ -21,9 +21,11 @@ import com.happyworldgames.hwgfilemanager.R
 import java.io.*
 import java.util.*
 import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 import kotlin.collections.ArrayList
 import kotlin.math.roundToInt
+
 
 class FileUtils {
 
@@ -40,6 +42,7 @@ class FileUtils {
         val audioExtensions = arrayOf(".3gp", ".mp4", ".m4a", ".mp3", ".ogg", ".wav", ".mkv", ".amr")
         val textExtensions = arrayOf(".txt", ".xml") //and more...
         val apkExtensions = arrayOf(".apk")
+        val archiveExtensions = arrayOf(".zip", ".apk")
 
         fun sort(array: Array<File>) : ArrayList<File>{
             array.sortWith(compareBy(String.CASE_INSENSITIVE_ORDER, { it.name }))
@@ -111,8 +114,8 @@ class FileUtils {
         }
         private fun zipFile(fileToZip: File, fileName: String, zipOut: ZipOutputStream) {
             if(fileToZip.isDirectory) {
-                zipOut.putNextEntry(ZipEntry(if(fileName.endsWith("/")) fileName else "$fileName/"));
-                zipOut.closeEntry();
+                zipOut.putNextEntry(ZipEntry(if(fileName.endsWith("/")) fileName else "$fileName/"))
+                zipOut.closeEntry()
 
                 fileToZip.listFiles()?.forEach { childFile ->
                     zipFile(childFile, fileName + "/" + childFile.name, zipOut)
@@ -126,6 +129,45 @@ class FileUtils {
                     origin.copyTo(zipOut, 1024)
                 }
             }
+        }
+        fun unZip(fileZip: File, destDir: File) {
+            ZipInputStream(BufferedInputStream(FileInputStream(fileZip))).use { input ->
+                var zipEntry = input.nextEntry
+                while (zipEntry != null) {
+                    val newFile = unZipNewFile(destDir, zipEntry)
+                    if (zipEntry.isDirectory) {
+                        if (!newFile.isDirectory && !newFile.mkdirs()) {
+                            throw IOException("Failed to create directory $newFile")
+                        }
+                    } else {
+                        // fix for Windows-created archives
+                        val parent = newFile.parentFile!!
+                        if (!parent.isDirectory && !parent.mkdirs()) {
+                            throw IOException("Failed to create directory $parent")
+                        }
+                        // write file content
+                        val fos = FileOutputStream(newFile)
+                        var len: Int
+                        val buffer = ByteArray(1024)
+                        while (input.read(buffer).also { len = it } > 0) {
+                            fos.write(buffer, 0, len)
+                        }
+                        fos.close()
+                    }
+                    zipEntry = input.nextEntry
+                }
+                input.closeEntry()
+            }
+        }
+        @Throws(IOException::class)
+        private fun unZipNewFile(destinationDir: File, zipEntry: ZipEntry): File {
+            val destFile = File(destinationDir, zipEntry.name)
+            val destDirPath = destinationDir.canonicalPath
+            val destFilePath = destFile.canonicalPath
+            if (!destFilePath.startsWith(destDirPath + File.separator)) {
+                throw IOException("Entry is outside of the target dir: " + zipEntry.name)
+            }
+            return destFile
         }
 
         fun copy(index: Int) {
