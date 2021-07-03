@@ -15,8 +15,7 @@
         android:supportsRtl="true"
         android:requestLegacyExternalStorage="true"
         android:theme="@style/Theme.HWGFileManager">
-        <activity android:name=".MainActivity"
-            android:windowSoftInputMode="adjustPan">
+        <activity android:name=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

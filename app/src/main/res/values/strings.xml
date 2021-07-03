@@ -19,4 +19,9 @@
     <string name="clipboard">ClipBoard</string>
     <string name="file">File</string>
     <string name="folder">Folder</string>
+    <string name="zip">zip</string>
+    <string name="_7z">7z</string>
+    <string name="current_location">Current location</string>
+    <string name="custom_location">Custom location</string>
+    <string name="path">Path</string>
 </resources>

@@ -352,7 +352,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
         val fileManagerAdapter = getCurrentFileManagerAdapter()
         fileManagerAdapter.switchMode(if(fileManagerAdapter.getMode() != TabDataItem.FileTabDataItem.Mode.Search) TabDataItem.FileTabDataItem.Mode.Search else TabDataItem.FileTabDataItem.Mode.None)
     }
-    private fun refreshCurrentItem() {
+    fun refreshCurrentItem() {
         adapter.notifyItemChanged(getCurrentPosition())
     }
     private fun switchViewCurrentItem() {
@@ -366,15 +366,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
     }
 
     private fun showAlertDelete() {
-        AlertDialog.Builder(this).apply {
-            setTitle("Delete Files")
-            setPositiveButton("Delete") { _, _ ->
-                FileUtils.delete(getCurrentPosition())
-                getCurrentFileManagerAdapter().switchMode(TabDataItem.FileTabDataItem.Mode.None)
-                refreshCurrentItem()
-            }
-            setNegativeButton("Cancel", null)
-        }.show()
+        bottomMenuController.showDelete()
     }
     private fun showAlertRename() {
         val builder = AlertDialog.Builder(this)
@@ -470,7 +462,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
         bottomMenuController.showCompress()
     }
     private fun showUnCompress() {
-        bottomMenuController.showUnCompress()
+        bottomMenuController.showExtractTo()
     }
     private fun showProperties() {
         bottomMenuController.showProperties()
