@@ -1,4 +1,4 @@
-package com.happyworldgames.hwgfilemanager.view.viewpager
+package com.happyworldgames.filemanager.view.viewpager
 
 import android.content.Context
 import android.view.LayoutInflater
@@ -8,11 +8,11 @@ import android.widget.Button
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.happyworldgames.hwgfilemanager.data.DataBase
-import com.happyworldgames.hwgfilemanager.data.FileUtils
-import com.happyworldgames.hwgfilemanager.data.TabDataItem
-import com.happyworldgames.hwgfilemanager.databinding.ViewPagerFilesItemBinding
-import com.happyworldgames.hwgfilemanager.view.files.FilesRecyclerViewAdapter
+import com.happyworldgames.filemanager.data.DataBase
+import com.happyworldgames.filemanager.data.FileUtils
+import com.happyworldgames.filemanager.data.TabDataItem
+import com.happyworldgames.filemanager.databinding.ViewPagerFilesItemBinding
+import com.happyworldgames.filemanager.view.files.FilesRecyclerViewAdapter
 
 class PagerAdapter(private val context: Context, private val pathButton: Button, val onSwitchSelectModeListener: FilesRecyclerViewAdapter.SwitchSelectModeListener): RecyclerView.Adapter<PagerAdapter.MyViewHolder>(){
 

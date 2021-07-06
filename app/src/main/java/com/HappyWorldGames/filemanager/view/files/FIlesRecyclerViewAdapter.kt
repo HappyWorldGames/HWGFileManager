@@ -1,4 +1,4 @@
-package com.happyworldgames.hwgfilemanager.view.files
+package com.happyworldgames.filemanager.view.files
 
 import android.content.Context
 import android.content.Intent
@@ -9,10 +9,10 @@ import android.widget.Button
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.snackbar.Snackbar
-import com.happyworldgames.hwgfilemanager.R
-import com.happyworldgames.hwgfilemanager.data.FileUtils
-import com.happyworldgames.hwgfilemanager.data.TabDataItem
-import com.happyworldgames.hwgfilemanager.databinding.RecyclerviewItemFilesLargeIconBinding
+import com.happyworldgames.filemanager.R
+import com.happyworldgames.filemanager.data.FileUtils
+import com.happyworldgames.filemanager.data.TabDataItem
+import com.happyworldgames.filemanager.databinding.RecyclerviewItemFilesLargeIconBinding
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob

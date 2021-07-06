@@ -1,4 +1,4 @@
-package com.happyworldgames.hwgfilemanager.data
+package com.happyworldgames.filemanager.data
 
 import java.io.File
 import java.util.*

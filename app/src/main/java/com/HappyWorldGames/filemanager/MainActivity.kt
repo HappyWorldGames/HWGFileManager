@@ -1,10 +1,14 @@
-package com.happyworldgames.hwgfilemanager
+package com.happyworldgames.filemanager
 
 import android.app.AlertDialog
 import android.content.DialogInterface
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Environment
+import android.provider.Settings
 import android.text.InputType
 import android.view.Gravity
 import android.view.Menu
@@ -23,14 +27,14 @@ import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
 import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.tabs.TabLayoutMediator
-import com.happyworldgames.hwgfilemanager.data.DataBase
-import com.happyworldgames.hwgfilemanager.data.FileUtils
-import com.happyworldgames.hwgfilemanager.data.TabDataItem
-import com.happyworldgames.hwgfilemanager.databinding.ActivityMainBinding
-import com.happyworldgames.hwgfilemanager.databinding.AlertDialogRenameBinding
-import com.happyworldgames.hwgfilemanager.view.BottomMenuController
-import com.happyworldgames.hwgfilemanager.view.files.FilesRecyclerViewAdapter
-import com.happyworldgames.hwgfilemanager.view.viewpager.PagerAdapter
+import com.happyworldgames.filemanager.data.DataBase
+import com.happyworldgames.filemanager.data.FileUtils
+import com.happyworldgames.filemanager.data.TabDataItem
+import com.happyworldgames.filemanager.databinding.ActivityMainBinding
+import com.happyworldgames.filemanager.databinding.AlertDialogRenameBinding
+import com.happyworldgames.filemanager.view.BottomMenuController
+import com.happyworldgames.filemanager.view.files.FilesRecyclerViewAdapter
+import com.happyworldgames.filemanager.view.viewpager.PagerAdapter
 import kotlinx.coroutines.*
 import java.io.File
 import java.lang.reflect.Method
@@ -153,8 +157,21 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
         bottomMenuController.openOrClose(false)
         setSupportActionBar(activityMain.toolbar)
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R){
+            if (Environment.isExternalStorageManager()) {
+                startApp()
+            } else {
+                //request for the permission
+                val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
+                val uri: Uri = Uri.fromParts("package", packageName, null)
+                intent.data = uri
+                startActivity(intent)
+            }
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) requestPermissions(arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE, android.Manifest.permission.WRITE_EXTERNAL_STORAGE), 1)
         else startApp()
+
+        //if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(Intent(this, FilesForegroundService.javaClass))
     }
 
     private fun startApp() = launch(Dispatchers.Main) {
@@ -182,7 +199,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
                 actionMode?.finish()
             }
         })
-        activityMain.bottomAppBar.setOnNavigationItemSelectedListener {
+        activityMain.bottomAppBar.setOnItemSelectedListener {
             when(previousMenuIdBottomAppBar) {
                 R.menu.bottom_navigation_menu_files -> when(it.itemId){
                     R.id.add -> showPopupMenuAddFileOrFolder()

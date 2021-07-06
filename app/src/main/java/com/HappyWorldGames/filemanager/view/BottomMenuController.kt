@@ -1,4 +1,4 @@
-package com.happyworldgames.hwgfilemanager.view
+package com.happyworldgames.filemanager.view
 
 import android.view.Gravity
 import android.view.Menu
@@ -7,23 +7,26 @@ import android.widget.TextView
 import androidx.core.widget.TextViewCompat
 import androidx.core.widget.doOnTextChanged
 import com.google.android.material.bottomsheet.BottomSheetBehavior
-import com.happyworldgames.hwgfilemanager.MainActivity
-import com.happyworldgames.hwgfilemanager.R
-import com.happyworldgames.hwgfilemanager.data.DataBase
-import com.happyworldgames.hwgfilemanager.data.FileUtils
-import com.happyworldgames.hwgfilemanager.data.TabDataItem
-import com.happyworldgames.hwgfilemanager.databinding.BottomMenuCompressToBinding
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import com.happyworldgames.filemanager.MainActivity
+import com.happyworldgames.filemanager.R
+import com.happyworldgames.filemanager.data.DataBase
+import com.happyworldgames.filemanager.data.FileUtils
+import com.happyworldgames.filemanager.data.TabDataItem
+import com.happyworldgames.filemanager.databinding.BottomMenuCompressToBinding
+import kotlinx.coroutines.*
 import java.io.File
 import java.util.*
+import kotlin.coroutines.CoroutineContext
 
-class BottomMenuController(private val mainActivity: MainActivity) {
+class BottomMenuController(private val mainActivity: MainActivity) : CoroutineScope {
+    override val coroutineContext: CoroutineContext = Dispatchers.Main + SupervisorJob()
+
     object GroupId {
         const val PASTE = 0x01
         const val DELETE = 0x02
         const val COMPRESS = 0x03
         const val EXTRACT_TO = 0X04
+        const val REQUEST_OVERWRITE = 0x05
     }
     object Id {
         const val YES = 0x01
@@ -35,11 +38,24 @@ class BottomMenuController(private val mainActivity: MainActivity) {
     private val bottomSheetBehavior = BottomSheetBehavior.from(bottomMenu)
 
     private lateinit var bottomMenuCompressTo: BottomMenuCompressToBinding
+    private lateinit var requestOverWrite: (result: Int) -> Unit
 
     init {
         bottomMenu.setNavigationItemSelectedListener {
             when(it.groupId){
-                GroupId.PASTE -> Thread{ FileUtils.paste(mainActivity.getCurrentPosition(), it.itemId) }.start()
+                GroupId.PASTE -> {
+                    launch(Dispatchers.IO) {
+                        FileUtils.paste(mainActivity.getCurrentPosition(), it.itemId) { file, requestWrite ->
+                            runBlocking {
+                                withContext(Dispatchers.Main) {
+                                    requestOverWrite = requestWrite
+                                    showRequestOverWrite(file)
+                                }
+                            }
+                        }
+                    }
+                    mainActivity.getCurrentFileManagerAdapter().switchMode(TabDataItem.FileTabDataItem.Mode.None)
+                }
                 GroupId.DELETE -> {
                     when(it.itemId) {
                         Id.YES -> {
@@ -82,6 +98,18 @@ class BottomMenuController(private val mainActivity: MainActivity) {
 
                             FileUtils.unZip(dataItem.selectedItems.values.first(), File(path))
 
+                            mainActivity.getCurrentFileManagerAdapter().switchMode(TabDataItem.FileTabDataItem.Mode.None)
+                        }
+                    }
+                }
+                GroupId.REQUEST_OVERWRITE -> {
+                    when(it.itemId) {
+                        Id.YES -> {
+                            requestOverWrite(1)
+                            mainActivity.getCurrentFileManagerAdapter().switchMode(TabDataItem.FileTabDataItem.Mode.None)
+                        }
+                        Id.NO -> {
+                            requestOverWrite(0)
                             mainActivity.getCurrentFileManagerAdapter().switchMode(TabDataItem.FileTabDataItem.Mode.None)
                         }
                     }
@@ -132,6 +160,17 @@ class BottomMenuController(private val mainActivity: MainActivity) {
             menu.add(GroupId.PASTE, index, 0, "Files ${boardData.files.size} Time:${calendar.get(Calendar.HOUR)}:${calendar.get(Calendar.MINUTE)}:${calendar.get(Calendar.SECOND)}")
         }
         if(menu.size() <= 0) menu.add("No elements").isEnabled = false
+
+        openOrClose(true)
+    }
+
+    private fun showRequestOverWrite(file: File) {
+        val menu = clearHeaderAndMenu()
+
+        menu.add("Request overwrite").isEnabled = false
+        menu.add("File: \"${file.name}\"").isEnabled = false
+        menu.add(GroupId.REQUEST_OVERWRITE, Id.YES, 0, "Rewrite")
+        menu.add(GroupId.REQUEST_OVERWRITE, Id.NO, 0, "Cancel")
 
         openOrClose(true)
     }

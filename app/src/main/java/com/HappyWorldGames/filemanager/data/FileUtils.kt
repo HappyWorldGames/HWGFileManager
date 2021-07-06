@@ -1,5 +1,6 @@
-package com.happyworldgames.hwgfilemanager.data
+package com.happyworldgames.filemanager.data
 
+import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
@@ -9,15 +10,13 @@ import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.media.MediaMetadataRetriever
 import android.media.ThumbnailUtils
-import android.media.ThumbnailUtils.OPTIONS_RECYCLE_INPUT
-import android.media.ThumbnailUtils.extractThumbnail
 import android.net.Uri
 import android.os.Build
 import android.util.Size
 import android.webkit.MimeTypeMap
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
-import com.happyworldgames.hwgfilemanager.R
+import com.happyworldgames.filemanager.R
 import java.io.*
 import java.util.*
 import java.util.zip.ZipEntry
@@ -26,14 +25,9 @@ import java.util.zip.ZipOutputStream
 import kotlin.collections.ArrayList
 import kotlin.math.roundToInt
 
-
 class FileUtils {
 
     companion object {
-        private const val TARGET_SIZE_MICRO_THUMBNAIL = 96
-        private const val MINI_KIND = 1
-        private const val MICRO_KIND = 3
-
         private const val SIZE_MINI_KIND_WIDTH = 512
         private const val SIZE_MINI_KIND_HEIGHT = 384
 
@@ -131,6 +125,7 @@ class FileUtils {
             }
         }
         fun unZip(fileZip: File, destDir: File) {
+            if(!destDir.exists()) destDir.mkdirs()
             ZipInputStream(BufferedInputStream(FileInputStream(fileZip))).use { input ->
                 var zipEntry = input.nextEntry
                 while (zipEntry != null) {
@@ -176,14 +171,29 @@ class FileUtils {
         fun cut(index: Int) {
             DataBase.clipBoardBase.add(ClipBoardData(ClipBoardData.Type.CUT, getDataItemFromIndex(index).selectedItems.toMap()))
         }
-        fun paste(currentPage: Int, index: Int) {
+        fun paste(currentPage: Int, index: Int, requestOverWrite: (file: File, requestWrite: (i: Int) -> Unit) -> Unit) {
             val type = DataBase.clipBoardBase[index].type
             val files = DataBase.clipBoardBase[index].files
 
+            var request = true
+            var overWrite = false
             files.values.forEach {
                 val fileTo = File(getDataItemFromIndex(currentPage).path, it.name)
-                it.copyTo(fileTo)
-                if(type == ClipBoardData.Type.CUT) it.delete()
+                if(fileTo.exists() && request) requestOverWrite(fileTo){ result ->
+                    overWrite = when(result) {
+                        1 -> true
+                        2 -> { request = false; false }
+                        3 -> { request = false; true }
+                        else -> false
+                    }
+                    try {
+                        it.copyTo(fileTo, overWrite)
+                        if(type == ClipBoardData.Type.CUT) it.delete()
+                    }catch (e: Throwable){ e.printStackTrace() }
+                }else try {
+                    it.copyTo(fileTo, overWrite)
+                    if(type == ClipBoardData.Type.CUT) it.delete()
+                }catch (e: Throwable){ e.printStackTrace() }
             }
         }
         fun delete(index: Int) {
@@ -235,9 +245,9 @@ class FileUtils {
         }
         fun createVideoThumbnailUtils(file: File): Bitmap {
             return if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) ThumbnailUtils.createVideoThumbnail(file, Size(SIZE_MINI_KIND_WIDTH, SIZE_MINI_KIND_HEIGHT), null)
-                else createVideoThumbnail(file.absolutePath, MINI_KIND) ?: throw Throwable("Image null")
+                else createVideoThumbnail(file.absolutePath) ?: throw Throwable("Image null")
         }
-        private fun createVideoThumbnail(filePath: String?, kind: Int): Bitmap? {
+        private fun createVideoThumbnail(filePath: String?): Bitmap? {
             var bitmap: Bitmap? = null
             val retriever = MediaMetadataRetriever()
             try {
@@ -255,25 +265,18 @@ class FileUtils {
                 }
             }
             if (bitmap == null) return null
-            if (kind == MINI_KIND) {
-                // Scale down the bitmap if it's too large.
-                val width = bitmap.width
-                val height = bitmap.height
-                val max = width.coerceAtLeast(height)
-                if (max > 512) {
-                    val scale = 512f / max
-                    val w = (scale * width).roundToInt()
-                    val h = (scale * height).roundToInt()
-                    bitmap = Bitmap.createScaledBitmap(bitmap, w, h, true)
-                }
-            } else if (kind == MICRO_KIND) {
-                bitmap = extractThumbnail(
-                    bitmap,
-                    TARGET_SIZE_MICRO_THUMBNAIL,
-                    TARGET_SIZE_MICRO_THUMBNAIL,
-                    OPTIONS_RECYCLE_INPUT
-                )
+
+            // Scale down the bitmap if it's too large.
+            val width = bitmap.width
+            val height = bitmap.height
+            val max = width.coerceAtLeast(height)
+            if (max > 512) {
+                val scale = 512f / max
+                val w = (scale * width).roundToInt()
+                val h = (scale * height).roundToInt()
+                bitmap = Bitmap.createScaledBitmap(bitmap, w, h, true)
             }
+
             return bitmap
         }
         fun createAudioThumbnailUtils(file: File): Bitmap {
@@ -316,6 +319,31 @@ class FileUtils {
         fun getUriFromFile(context: Context, file: File): Uri {
             return if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) FileProvider.getUriForFile(context, context.applicationContext.packageName + ".provider", file)
             else Uri.fromFile(file)
+        }
+
+        fun showChoiceFileManager(context: Context, pathF: File, onSelect: (path: String) -> Unit) {
+            val path = if(pathF.isFile) pathF.parentFile else pathF
+
+            val builder = AlertDialog.Builder(context)
+            builder.setTitle("Choice")
+            val names = arrayListOf<String>()
+            sort(path.listFiles()!!).forEach {
+                names.add(it.name)
+            }
+            builder.setItems(names.toTypedArray()) { _, i ->
+                val file = File(path, names[i])
+                if (file.isDirectory) showChoiceFileManager(context, file, onSelect)
+                else onSelect(file.parentFile!!.absolutePath)
+            }
+            builder.setPositiveButton("Select") { _, _ ->
+                onSelect(path.absolutePath)
+            }
+            builder.setNegativeButton("Cancel"){_,_->}
+            builder.setNeutralButton("Go Up"){_, _ ->
+                val file = path.parentFile!!
+                showChoiceFileManager(context, if(file.canRead()) file else path, onSelect)
+            }
+            builder.show()
         }
     }
 

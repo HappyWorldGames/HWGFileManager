@@ -1,6 +1,6 @@
-package com.happyworldgames.hwgfilemanager.data
+package com.happyworldgames.filemanager.data
 
-import com.happyworldgames.hwgfilemanager.R
+import com.happyworldgames.filemanager.R
 
 /*
     Contains info about tabs and clipboard
