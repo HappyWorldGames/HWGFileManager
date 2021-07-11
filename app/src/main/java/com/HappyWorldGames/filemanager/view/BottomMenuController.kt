@@ -38,14 +38,14 @@ class BottomMenuController(private val mainActivity: MainActivity) : CoroutineSc
     private val bottomSheetBehavior = BottomSheetBehavior.from(bottomMenu)
 
     private lateinit var bottomMenuCompressTo: BottomMenuCompressToBinding
-    private lateinit var requestOverWrite: (result: Int) -> Unit
+    lateinit var requestOverWrite: (result: Int) -> Unit
 
     init {
         bottomMenu.setNavigationItemSelectedListener {
             when(it.groupId){
                 GroupId.PASTE -> {
                     launch(Dispatchers.IO) {
-                        FileUtils.paste(mainActivity.getCurrentPosition(), it.itemId) { file, requestWrite ->
+                        FileUtils.paste(mainActivity, mainActivity.getCurrentPosition(), it.itemId) { file, requestWrite ->
                             runBlocking {
                                 withContext(Dispatchers.Main) {
                                     requestOverWrite = requestWrite

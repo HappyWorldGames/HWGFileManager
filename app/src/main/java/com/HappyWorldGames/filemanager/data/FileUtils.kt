@@ -17,6 +17,7 @@ import android.webkit.MimeTypeMap
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import com.happyworldgames.filemanager.R
+import com.happyworldgames.filemanager.view.NotificationController
 import java.io.*
 import java.util.*
 import java.util.zip.ZipEntry
@@ -28,8 +29,8 @@ import kotlin.math.roundToInt
 class FileUtils {
 
     companion object {
-        private const val SIZE_MINI_KIND_WIDTH = 512
-        private const val SIZE_MINI_KIND_HEIGHT = 384
+        private const val SIZE_MINI_KIND_WIDTH = 96 //512
+        private const val SIZE_MINI_KIND_HEIGHT = 96 //384
 
         val imageExtensions = arrayOf(".png", ".jpg", ".gif", ".bmp")
         val videoExtensions = arrayOf(".mp4", ".3gp", ".mkv", ".ts", ".webm")
@@ -171,13 +172,18 @@ class FileUtils {
         fun cut(index: Int) {
             DataBase.clipBoardBase.add(ClipBoardData(ClipBoardData.Type.CUT, getDataItemFromIndex(index).selectedItems.toMap()))
         }
-        fun paste(currentPage: Int, index: Int, requestOverWrite: (file: File, requestWrite: (i: Int) -> Unit) -> Unit) {
-            val type = DataBase.clipBoardBase[index].type
-            val files = DataBase.clipBoardBase[index].files
+        fun paste(context: Context, currentPage: Int, index: Int, requestOverWrite: (file: File, requestWrite: (i: Int) -> Unit) -> Unit) {
+            paste(context, currentPage, DataBase.clipBoardBase[index], requestOverWrite)
+        }
+        private fun paste(context: Context, currentPage: Int, clipBoardData: ClipBoardData, requestOverWrite: (file: File, requestWrite: (i: Int) -> Unit) -> Unit) {
+            val type = clipBoardData.type
+            val files = clipBoardData.files
 
             var request = true
             var overWrite = false
-            files.values.forEach {
+            val onUpdateNotify = NotificationController(context).createNotifyFile(clipBoardData)
+            files.values.forEachIndexed { progress, it ->
+                onUpdateNotify(progress)
                 val fileTo = File(getDataItemFromIndex(currentPage).path, it.name)
                 if(fileTo.exists() && request) requestOverWrite(fileTo){ result ->
                     overWrite = when(result) {

@@ -1,6 +1,7 @@
 package com.happyworldgames.filemanager
 
-import android.app.AlertDialog
+import android.annotation.SuppressLint
+import android.app.*
 import android.content.DialogInterface
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -43,6 +44,11 @@ import kotlin.coroutines.CoroutineContext
 import kotlin.system.exitProcess
 
 class MainActivity : AppCompatActivity(), CoroutineScope {
+    companion object {
+        @SuppressLint("StaticFieldLeak")
+        var forServiceBottomMenuController: BottomMenuController? = null
+    }
+
     override val coroutineContext: CoroutineContext = Dispatchers.Main + SupervisorJob()
 
     private var previousMenuIdBottomAppBar = -1
@@ -155,6 +161,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
 
         setContentView(activityMain.root)
         bottomMenuController.openOrClose(false)
+        forServiceBottomMenuController = bottomMenuController
         setSupportActionBar(activityMain.toolbar)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R){
@@ -168,10 +175,8 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
                 startActivity(intent)
             }
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) requestPermissions(arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE, android.Manifest.permission.WRITE_EXTERNAL_STORAGE), 1)
+        else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) requestPermissions(arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE, android.Manifest.permission.WRITE_EXTERNAL_STORAGE), 1)
         else startApp()
-
-        //if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(Intent(this, FilesForegroundService.javaClass))
     }
 
     private fun startApp() = launch(Dispatchers.Main) {
@@ -484,4 +489,5 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
     private fun showProperties() {
         bottomMenuController.showProperties()
     }
+
 }
