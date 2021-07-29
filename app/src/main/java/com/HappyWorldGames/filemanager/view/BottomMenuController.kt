@@ -13,6 +13,7 @@ import com.happyworldgames.filemanager.data.DataBase
 import com.happyworldgames.filemanager.data.FileUtils
 import com.happyworldgames.filemanager.data.TabDataItem
 import com.happyworldgames.filemanager.databinding.BottomMenuCompressToBinding
+import com.happyworldgames.filemanager.databinding.BottomMenuRenameToBinding
 import kotlinx.coroutines.*
 import java.io.File
 import java.util.*
@@ -27,16 +28,21 @@ class BottomMenuController(private val mainActivity: MainActivity) : CoroutineSc
         const val COMPRESS = 0x03
         const val EXTRACT_TO = 0X04
         const val REQUEST_OVERWRITE = 0x05
+        const val RENAME = 0x06
     }
     object Id {
         const val YES = 0x01
         const val NO = 0x02
+        const val CANCEL = 0x03
+        const val OVERWRITE_ALL = 0x04
+        const val NOT_OVERWRITE_ALL = 0x05
     }
     
     private val bottomMenu = mainActivity.activityMain.bottomMenu
     private val scrim = mainActivity.activityMain.scrim
     private val bottomSheetBehavior = BottomSheetBehavior.from(bottomMenu)
 
+    private lateinit var bottomMenuRenameTo: BottomMenuRenameToBinding
     private lateinit var bottomMenuCompressTo: BottomMenuCompressToBinding
     lateinit var requestOverWrite: (result: Int) -> Unit
 
@@ -46,11 +52,9 @@ class BottomMenuController(private val mainActivity: MainActivity) : CoroutineSc
                 GroupId.PASTE -> {
                     launch(Dispatchers.IO) {
                         FileUtils.paste(mainActivity, mainActivity.getCurrentPosition(), it.itemId) { file, requestWrite ->
-                            runBlocking {
-                                withContext(Dispatchers.Main) {
-                                    requestOverWrite = requestWrite
-                                    showRequestOverWrite(file)
-                                }
+                            requestOverWrite = requestWrite
+                            runBlocking(Dispatchers.Main) {
+                                showRequestOverWrite(file)
                             }
                         }
                     }
@@ -104,15 +108,13 @@ class BottomMenuController(private val mainActivity: MainActivity) : CoroutineSc
                 }
                 GroupId.REQUEST_OVERWRITE -> {
                     when(it.itemId) {
-                        Id.YES -> {
-                            requestOverWrite(1)
-                            mainActivity.getCurrentFileManagerAdapter().switchMode(TabDataItem.FileTabDataItem.Mode.None)
-                        }
-                        Id.NO -> {
-                            requestOverWrite(0)
-                            mainActivity.getCurrentFileManagerAdapter().switchMode(TabDataItem.FileTabDataItem.Mode.None)
-                        }
+                        Id.YES -> requestOverWrite(1)
+                        Id.NO -> requestOverWrite(0)
+                        Id.OVERWRITE_ALL -> requestOverWrite(3)
+                        Id.NOT_OVERWRITE_ALL -> requestOverWrite(2)
+                        Id.CANCEL -> requestOverWrite(4)
                     }
+                    mainActivity.getCurrentFileManagerAdapter().switchMode(TabDataItem.FileTabDataItem.Mode.None)
                 }
             }
             openOrClose(false)
@@ -169,8 +171,11 @@ class BottomMenuController(private val mainActivity: MainActivity) : CoroutineSc
 
         menu.add("Request overwrite").isEnabled = false
         menu.add("File: \"${file.name}\"").isEnabled = false
-        menu.add(GroupId.REQUEST_OVERWRITE, Id.YES, 0, "Rewrite")
-        menu.add(GroupId.REQUEST_OVERWRITE, Id.NO, 0, "Cancel")
+        menu.add(GroupId.REQUEST_OVERWRITE, Id.OVERWRITE_ALL, 0, "OverWrite All")
+        menu.add(GroupId.REQUEST_OVERWRITE, Id.NOT_OVERWRITE_ALL, 0, "Not OverWrite All")
+        menu.add(GroupId.REQUEST_OVERWRITE, Id.YES, 0, "OverWrite")
+        menu.add(GroupId.REQUEST_OVERWRITE, Id.NO, 0, "Not OverWrite")
+        menu.add(GroupId.REQUEST_OVERWRITE, Id.CANCEL, 0, "Cancel")
 
         openOrClose(true)
     }
@@ -181,6 +186,23 @@ class BottomMenuController(private val mainActivity: MainActivity) : CoroutineSc
         menu.add("Delete Files").isEnabled = false
         menu.add(GroupId.DELETE, Id.YES, 0, "Delete")
         menu.add(GroupId.DELETE, Id.NO, 0, "Cancel")
+
+        openOrClose(true)
+    }
+    fun showRename() {
+        val menu = clearHeaderAndMenu()
+        bottomMenuRenameTo = BottomMenuRenameToBinding.bind(bottomMenu.inflateHeaderView(R.layout.bottom_menu_rename_to))
+        val dataItem = FileUtils.getDataItemFromIndex(mainActivity.getCurrentPosition())
+
+        bottomMenuRenameTo.name.doOnTextChanged { _, _, _, _ ->
+            if(menu.findItem(Id.YES).isEnabled != bottomMenuRenameTo.name.text!!.isNotEmpty()) menu.findItem(Id.YES).isEnabled = bottomMenuRenameTo.name.text!!.isNotEmpty() && !bottomMenuRenameTo.name.text!!.equals(dataItem.selectedItems.values.first().name)
+        }
+        bottomMenuRenameTo.name.post {
+            bottomMenuRenameTo.name.setText(dataItem.selectedItems.values.first().name)
+        }
+
+        menu.add(GroupId.RENAME, Id.YES, 0, "Rename").isEnabled = false
+        menu.add(GroupId.RENAME, Id.NO, 0, "Cancel")
 
         openOrClose(true)
     }

@@ -16,8 +16,10 @@ import android.util.Size
 import android.webkit.MimeTypeMap
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import com.happyworldgames.filemanager.MainActivity
 import com.happyworldgames.filemanager.R
 import com.happyworldgames.filemanager.view.NotificationController
+import kotlinx.coroutines.*
 import java.io.*
 import java.util.*
 import java.util.zip.ZipEntry
@@ -29,15 +31,16 @@ import kotlin.math.roundToInt
 class FileUtils {
 
     companion object {
-        private const val SIZE_MINI_KIND_WIDTH = 96 //512
-        private const val SIZE_MINI_KIND_HEIGHT = 96 //384
+        private val DENSITY by lazy { MainActivity.context.resources.displayMetrics.density }
+        private val ICON_SIZE_WIDTH by lazy{ (24 * DENSITY).roundToInt() } //512
+        private val ICON_SIZE_HEIGHT by lazy{ (24 * DENSITY).roundToInt() } //384
 
         val imageExtensions = arrayOf(".png", ".jpg", ".gif", ".bmp")
         val videoExtensions = arrayOf(".mp4", ".3gp", ".mkv", ".ts", ".webm")
         val audioExtensions = arrayOf(".3gp", ".mp4", ".m4a", ".mp3", ".ogg", ".wav", ".mkv", ".amr")
         val textExtensions = arrayOf(".txt", ".xml") //and more...
         val apkExtensions = arrayOf(".apk")
-        val archiveExtensions = arrayOf(".zip", ".apk")
+        val archiveExtensions = arrayOf(".zip", ".apk") //and more...
 
         fun sort(array: Array<File>) : ArrayList<File>{
             array.sortWith(compareBy(String.CASE_INSENSITIVE_ORDER, { it.name }))
@@ -172,34 +175,47 @@ class FileUtils {
         fun cut(index: Int) {
             DataBase.clipBoardBase.add(ClipBoardData(ClipBoardData.Type.CUT, getDataItemFromIndex(index).selectedItems.toMap()))
         }
-        fun paste(context: Context, currentPage: Int, index: Int, requestOverWrite: (file: File, requestWrite: (i: Int) -> Unit) -> Unit) {
+        suspend fun paste(context: Context, currentPage: Int, index: Int, requestOverWrite: (file: File, requestWrite: (i: Int) -> Unit) -> Unit) {
             paste(context, currentPage, DataBase.clipBoardBase[index], requestOverWrite)
         }
-        private fun paste(context: Context, currentPage: Int, clipBoardData: ClipBoardData, requestOverWrite: (file: File, requestWrite: (i: Int) -> Unit) -> Unit) {
+        private suspend fun paste(context: Context, currentPage: Int, clipBoardData: ClipBoardData, requestOverWrite: (file: File, requestWrite: (i: Int) -> Unit) -> Unit) {
             val type = clipBoardData.type
             val files = clipBoardData.files
 
             var request = true
             var overWrite = false
             val onUpdateNotify = NotificationController(context).createNotifyFile(clipBoardData)
-            files.values.forEachIndexed { progress, it ->
+
+            var breakFor = false
+            var waitRequest = false
+            files.values.forEachIndexed pasteFor@{ progress, it ->
                 onUpdateNotify(progress)
                 val fileTo = File(getDataItemFromIndex(currentPage).path, it.name)
-                if(fileTo.exists() && request) requestOverWrite(fileTo){ result ->
-                    overWrite = when(result) {
-                        1 -> true
-                        2 -> { request = false; false }
-                        3 -> { request = false; true }
-                        else -> false
+                //need stop requestOverWrite when his show, and start when hide
+                if(fileTo.exists() && request){
+                    waitRequest = true
+                    requestOverWrite(fileTo) { result ->
+                        overWrite = when (result) {
+                            1 -> true
+                            2 -> { request = false; false }
+                            3 -> { request = false; true }
+                            4 -> { breakFor = true; false }
+                            else -> false
+                        }
+                        try {
+                            it.copyTo(fileTo, overWrite)
+                            if (overWrite && type == ClipBoardData.Type.CUT) it.delete()
+                        } catch (e: Throwable) {
+                            e.printStackTrace()
+                        }
+                        waitRequest = false
                     }
-                    try {
-                        it.copyTo(fileTo, overWrite)
-                        if(type == ClipBoardData.Type.CUT) it.delete()
-                    }catch (e: Throwable){ e.printStackTrace() }
                 }else try {
                     it.copyTo(fileTo, overWrite)
-                    if(type == ClipBoardData.Type.CUT) it.delete()
+                    if(overWrite && type == ClipBoardData.Type.CUT) it.delete()
                 }catch (e: Throwable){ e.printStackTrace() }
+                while (waitRequest) delay(200)
+                if(breakFor) return@pasteFor
             }
         }
         fun delete(index: Int) {
@@ -246,11 +262,11 @@ class FileUtils {
         }
 
         fun createImageThumbnailUtils(file: File): Bitmap {
-            return if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) ThumbnailUtils.createImageThumbnail(file, Size(SIZE_MINI_KIND_WIDTH, SIZE_MINI_KIND_HEIGHT), null)
-                else Bitmap.createScaledBitmap(BitmapFactory.decodeFile(file.absolutePath), SIZE_MINI_KIND_WIDTH, SIZE_MINI_KIND_HEIGHT, false)
+            return if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) ThumbnailUtils.createImageThumbnail(file, Size(ICON_SIZE_WIDTH, ICON_SIZE_HEIGHT), null)
+                else Bitmap.createScaledBitmap(BitmapFactory.decodeFile(file.absolutePath), ICON_SIZE_WIDTH, ICON_SIZE_HEIGHT, false)
         }
         fun createVideoThumbnailUtils(file: File): Bitmap {
-            return if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) ThumbnailUtils.createVideoThumbnail(file, Size(SIZE_MINI_KIND_WIDTH, SIZE_MINI_KIND_HEIGHT), null)
+            return if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) ThumbnailUtils.createVideoThumbnail(file, Size(ICON_SIZE_WIDTH, ICON_SIZE_HEIGHT), null)
                 else createVideoThumbnail(file.absolutePath) ?: throw Throwable("Image null")
         }
         private fun createVideoThumbnail(filePath: String?): Bitmap? {
@@ -272,21 +288,12 @@ class FileUtils {
             }
             if (bitmap == null) return null
 
-            // Scale down the bitmap if it's too large.
-            val width = bitmap.width
-            val height = bitmap.height
-            val max = width.coerceAtLeast(height)
-            if (max > 512) {
-                val scale = 512f / max
-                val w = (scale * width).roundToInt()
-                val h = (scale * height).roundToInt()
-                bitmap = Bitmap.createScaledBitmap(bitmap, w, h, true)
-            }
+            Bitmap.createScaledBitmap(bitmap, ICON_SIZE_WIDTH, ICON_SIZE_HEIGHT, true)
 
             return bitmap
         }
         fun createAudioThumbnailUtils(file: File): Bitmap {
-            return if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) ThumbnailUtils.createAudioThumbnail(file, Size(SIZE_MINI_KIND_WIDTH, SIZE_MINI_KIND_HEIGHT), null)
+            return if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) ThumbnailUtils.createAudioThumbnail(file, Size(ICON_SIZE_WIDTH, ICON_SIZE_HEIGHT), null)
                 else throw Throwable("Use default icon")
         }
         fun createTextThumbnailUtils(context: Context): Bitmap = drawableToBitmap(ContextCompat.getDrawable(context, R.drawable.file_text)) ?: throw Throwable("He is null!!!")

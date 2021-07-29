@@ -53,7 +53,8 @@ class FilesRecyclerViewAdapter(private val backButton: Button, var tabPosition: 
         if(mode == TabDataItem.FileTabDataItem.Mode.Select) getDataItem().selectedItems.clear()
         else if(mode == TabDataItem.FileTabDataItem.Mode.Search) getDataItem().searchItems.clear()
         onSwitchSelectMode.onSwitch(mode)
-        notifyDataSetChanged()
+
+        notifyItemRangeChanged(0, itemCount)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MyViewHolder {

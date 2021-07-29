@@ -2,6 +2,7 @@ package com.happyworldgames.filemanager
 
 import android.annotation.SuppressLint
 import android.app.*
+import android.content.Context
 import android.content.DialogInterface
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -11,15 +12,11 @@ import android.os.Bundle
 import android.os.Environment
 import android.provider.Settings
 import android.text.InputType
-import android.view.Gravity
-import android.view.Menu
-import android.view.MenuItem
-import android.view.View
+import android.view.*
 import android.widget.EditText
 import android.widget.PopupMenu
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.view.ActionMode
 import androidx.core.content.res.ResourcesCompat
 import androidx.core.view.forEach
 import androidx.core.view.get
@@ -47,6 +44,8 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
     companion object {
         @SuppressLint("StaticFieldLeak")
         var forServiceBottomMenuController: BottomMenuController? = null
+        @SuppressLint("StaticFieldLeak")
+        lateinit var context: Context
     }
 
     override val coroutineContext: CoroutineContext = Dispatchers.Main + SupervisorJob()
@@ -58,7 +57,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
     private val adapter by lazy { PagerAdapter(this, activityMain.pathButton, switchSelectModeListener)  }
     private val switchSelectModeListener = object : FilesRecyclerViewAdapter.SwitchSelectModeListener() {
         override fun onSwitch(mode: TabDataItem.FileTabDataItem.Mode) {
-            if(actionMode == null) actionMode = startSupportActionMode(callback)
+            if(actionMode == null) actionMode = activityMain.toolbar.startActionMode(callback)
             when(mode) {
                 TabDataItem.FileTabDataItem.Mode.Select -> actionMode?.title = "1 selected"
                 TabDataItem.FileTabDataItem.Mode.Search -> actionMode?.title = ""
@@ -124,7 +123,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
                 }
                 mode.customView = searchEditText
             }
-            supportActionBar?.hide()
+            //supportActionBar?.hide()
             return true
         }
 
@@ -158,6 +157,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        context = this
 
         setContentView(activityMain.root)
         bottomMenuController.openOrClose(false)
@@ -391,6 +391,8 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
         bottomMenuController.showDelete()
     }
     private fun showAlertRename() {
+        bottomMenuController.showRename()
+        /*
         val builder = AlertDialog.Builder(this)
 
         val selectedItems = FileUtils.getDataItemFromIndex(getCurrentPosition()).selectedItems.values.toList()
@@ -424,7 +426,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
             }
             setNegativeButton("Cancel", null)
         }
-        builder.show()
+        builder.show()*/
     }
     private fun showPopupMenuMore() {
         val popup = PopupMenu(this, activityMain.bottomAppBar)
