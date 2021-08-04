@@ -13,6 +13,7 @@
         app:layout_constraintTop_toTopOf="parent" />
 
     <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/til_name"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         app:layout_constraintTop_toBottomOf="@id/title">
@@ -22,6 +23,22 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:hint="@string/name" />
+
     </com.google.android.material.textfield.TextInputLayout>
+
+    <Button
+        android:id="@+id/rename_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:enabled="false"
+        android:text="@string/rename"
+        app:layout_constraintTop_toBottomOf="@id/til_name" />
+
+    <Button
+        android:id="@+id/cancel_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/cancel"
+        app:layout_constraintTop_toBottomOf="@id/rename_button"/>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -205,9 +205,7 @@ class FileUtils {
                         try {
                             it.copyTo(fileTo, overWrite)
                             if (overWrite && type == ClipBoardData.Type.CUT) it.delete()
-                        } catch (e: Throwable) {
-                            e.printStackTrace()
-                        }
+                        } catch (e: Throwable) { e.printStackTrace() }
                         waitRequest = false
                     }
                 }else try {
@@ -216,6 +214,10 @@ class FileUtils {
                 }catch (e: Throwable){ e.printStackTrace() }
                 while (waitRequest) delay(200)
                 if(breakFor) return@pasteFor
+            }
+            if(type == ClipBoardData.Type.CUT) DataBase.clipBoardBase.remove(clipBoardData)
+            withContext (Dispatchers.Main) {
+                (MainActivity.context as MainActivity).refreshCurrentItem()
             }
         }
         fun delete(index: Int) {

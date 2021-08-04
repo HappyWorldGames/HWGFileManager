@@ -14,6 +14,7 @@ import com.happyworldgames.filemanager.data.FileUtils
 import com.happyworldgames.filemanager.data.TabDataItem
 import com.happyworldgames.filemanager.databinding.BottomMenuCompressToBinding
 import com.happyworldgames.filemanager.databinding.BottomMenuRenameToBinding
+import com.happyworldgames.filemanager.view.files.FilesRecyclerViewAdapter
 import kotlinx.coroutines.*
 import java.io.File
 import java.util.*
@@ -25,10 +26,7 @@ class BottomMenuController(private val mainActivity: MainActivity) : CoroutineSc
     object GroupId {
         const val PASTE = 0x01
         const val DELETE = 0x02
-        const val COMPRESS = 0x03
-        const val EXTRACT_TO = 0X04
-        const val REQUEST_OVERWRITE = 0x05
-        const val RENAME = 0x06
+        const val REQUEST_OVERWRITE = 0x03
     }
     object Id {
         const val YES = 0x01
@@ -42,8 +40,6 @@ class BottomMenuController(private val mainActivity: MainActivity) : CoroutineSc
     private val scrim = mainActivity.activityMain.scrim
     private val bottomSheetBehavior = BottomSheetBehavior.from(bottomMenu)
 
-    private lateinit var bottomMenuRenameTo: BottomMenuRenameToBinding
-    private lateinit var bottomMenuCompressTo: BottomMenuCompressToBinding
     lateinit var requestOverWrite: (result: Int) -> Unit
 
     init {
@@ -63,46 +59,17 @@ class BottomMenuController(private val mainActivity: MainActivity) : CoroutineSc
                 GroupId.DELETE -> {
                     when(it.itemId) {
                         Id.YES -> {
+                            val fileAdapter = mainActivity.getCurrentFileManagerAdapter()
+                            val sortedFiles = FileUtils.sort(fileAdapter.getFilePath().listFiles()!!)
+
                             FileUtils.delete(mainActivity.getCurrentPosition())
-                            mainActivity.getCurrentFileManagerAdapter().switchMode(TabDataItem.FileTabDataItem.Mode.None)
-                        }
-                    }
-                }
-                GroupId.COMPRESS -> {
-                    when(it.itemId) {
-                        Id.YES -> {
-                            val name = bottomMenuCompressTo.name.text.toString()
 
-                            val dataItem = FileUtils.getDataItemFromIndex(mainActivity.getCurrentPosition())
+                            val arrayTemp = arrayListOf<Int>()
+                            val selectedItems = FileUtils.getDataItemFromIndex(mainActivity.getCurrentPosition()).selectedItems
+                            for(i in 0 until sortedFiles.size)
+                                if(selectedItems.containsKey(sortedFiles[i].absolutePath)) arrayTemp.add(i)
 
-                            val path = when(bottomMenuCompressTo.pathChoise.checkedRadioButtonId) {
-                                R.id.custom_location -> bottomMenuCompressTo.path.text.toString()
-                                else -> dataItem.path
-                            }
-
-                            when(bottomMenuCompressTo.formatChoise.checkedRadioButtonId) {
-                                R.id.zip -> mainActivity.launch(Dispatchers.IO){ FileUtils.zip(dataItem.selectedItems.values.toList(), File(path, name + if(!name.endsWith(".zip")) ".zip" else "")) }
-                                R.id.seven_z -> TODO()
-                            }
-
-                            mainActivity.getCurrentFileManagerAdapter().switchMode(TabDataItem.FileTabDataItem.Mode.None)
-                        }
-                    }
-                }
-                GroupId.EXTRACT_TO -> {
-                    when(it.itemId) {
-                        Id.YES -> {
-                            val dataItem = FileUtils.getDataItemFromIndex(mainActivity.getCurrentPosition())
-
-                            val path = when(bottomMenuCompressTo.pathChoise.checkedRadioButtonId) {
-                                R.id.current_location_folder -> File(dataItem.path, dataItem.selectedItems.values.first().nameWithoutExtension).absolutePath
-                                R.id.custom_location -> bottomMenuCompressTo.path.text.toString()
-                                else -> dataItem.path
-                            }
-
-                            FileUtils.unZip(dataItem.selectedItems.values.first(), File(path))
-
-                            mainActivity.getCurrentFileManagerAdapter().switchMode(TabDataItem.FileTabDataItem.Mode.None)
+                            fileAdapter.switchMode(TabDataItem.FileTabDataItem.Mode.None, FilesRecyclerViewAdapter.NotifyItemMode.Remove(arrayTemp))
                         }
                     }
                 }
@@ -127,13 +94,12 @@ class BottomMenuController(private val mainActivity: MainActivity) : CoroutineSc
             override fun onStateChanged(bottomSheet: View, newState: Int) {
                 if (newState == BottomSheetBehavior.STATE_HIDDEN) openOrClose(false, fromCallBack = true)
             }
-
             override fun onSlide(bottomSheet: View, slideOffset: Float) {}
-
         })
     }
 
     fun openOrClose(open: Boolean, fromCallBack: Boolean = false) {
+        if(!open) mainActivity.hideKeyboard()
         mainActivity.activityMain.bottomAppBar.visibility = if(open) View.GONE else View.VISIBLE
         scrim.visibility = if(open) View.VISIBLE else View.GONE
         if(!fromCallBack) bottomSheetBehavior.state = if(open) BottomSheetBehavior.STATE_EXPANDED else BottomSheetBehavior.STATE_HIDDEN
@@ -154,6 +120,49 @@ class BottomMenuController(private val mainActivity: MainActivity) : CoroutineSc
         return getClearMenu()
     }
 
+    fun showCreateFileOrFolder() {
+        clearHeaderAndMenu()
+        val bottomMenuCompressTo = BottomMenuCompressToBinding.bind(bottomMenu.inflateHeaderView(R.layout.bottom_menu_compress_to))
+
+        bottomMenuCompressTo.name.doOnTextChanged { _, _, _, _ ->
+            val file = File(FileUtils.getDataItemFromIndex(mainActivity.getCurrentPosition()).path, bottomMenuCompressTo.name.text.toString())
+            bottomMenuCompressTo.compressButton.isEnabled = bottomMenuCompressTo.name.text!!.isNotEmpty() && !file.exists()
+        }
+        bottomMenuCompressTo.compressButton.isEnabled = false
+
+        bottomMenuCompressTo.title.text = mainActivity.getString(R.string.create_file_or_folder)
+        bottomMenuCompressTo.textName.visibility = View.VISIBLE
+        bottomMenuCompressTo.formatChoise.visibility = View.VISIBLE
+        bottomMenuCompressTo.currentLocationFolder.visibility = View.GONE
+        bottomMenuCompressTo.pathChoise.visibility = View.GONE
+
+        bottomMenuCompressTo.sevenZ.isEnabled = true
+
+        bottomMenuCompressTo.zip.text = mainActivity.getString(R.string.file)
+        bottomMenuCompressTo.sevenZ.text = mainActivity.getString(R.string.folder)
+
+        bottomMenuCompressTo.compressButton.text = mainActivity.getString(R.string.create)
+        bottomMenuCompressTo.compressButton.setOnClickListener {
+            if(bottomMenuCompressTo.name.text.toString() == "" || DataBase.tabsBase[mainActivity.getCurrentPosition()] !is TabDataItem.FileTabDataItem) return@setOnClickListener
+
+            val file = File(FileUtils.getDataItemFromIndex(mainActivity.getCurrentPosition()).path, bottomMenuCompressTo.name.text.toString())
+            if(!file.parentFile!!.canWrite()) return@setOnClickListener
+
+            when(bottomMenuCompressTo.formatChoise.checkedRadioButtonId) {
+                R.id.zip -> file.createNewFile()
+                R.id.seven_z -> file.mkdirs()
+            }
+
+            mainActivity.refreshCurrentItem()
+
+            openOrClose(false)
+        }
+        bottomMenuCompressTo.cancelButton.setOnClickListener {
+            openOrClose(false)
+        }
+
+        openOrClose(true)
+    }
     fun showClipBoardMenu() {
         val menu = clearHeaderAndMenu()
 
@@ -190,19 +199,26 @@ class BottomMenuController(private val mainActivity: MainActivity) : CoroutineSc
         openOrClose(true)
     }
     fun showRename() {
-        val menu = clearHeaderAndMenu()
-        bottomMenuRenameTo = BottomMenuRenameToBinding.bind(bottomMenu.inflateHeaderView(R.layout.bottom_menu_rename_to))
+        clearHeaderAndMenu()
+        val bottomMenuRenameTo = BottomMenuRenameToBinding.bind(bottomMenu.inflateHeaderView(R.layout.bottom_menu_rename_to))
         val dataItem = FileUtils.getDataItemFromIndex(mainActivity.getCurrentPosition())
 
         bottomMenuRenameTo.name.doOnTextChanged { _, _, _, _ ->
-            if(menu.findItem(Id.YES).isEnabled != bottomMenuRenameTo.name.text!!.isNotEmpty()) menu.findItem(Id.YES).isEnabled = bottomMenuRenameTo.name.text!!.isNotEmpty() && !bottomMenuRenameTo.name.text!!.equals(dataItem.selectedItems.values.first().name)
+            val file = File(FileUtils.getDataItemFromIndex(mainActivity.getCurrentPosition()).path, bottomMenuRenameTo.name.text.toString())
+            bottomMenuRenameTo.renameButton.isEnabled = bottomMenuRenameTo.name.text!!.isNotEmpty() && bottomMenuRenameTo.name.text!!.toString() != dataItem.selectedItems.values.first().name && !file.exists()
         }
         bottomMenuRenameTo.name.post {
             bottomMenuRenameTo.name.setText(dataItem.selectedItems.values.first().name)
         }
 
-        menu.add(GroupId.RENAME, Id.YES, 0, "Rename").isEnabled = false
-        menu.add(GroupId.RENAME, Id.NO, 0, "Cancel")
+        bottomMenuRenameTo.renameButton.setOnClickListener {
+            FileUtils.rename(dataItem.selectedItems.values.first(), bottomMenuRenameTo.name.text.toString())
+            mainActivity.getCurrentFileManagerAdapter().switchMode(TabDataItem.FileTabDataItem.Mode.None)
+            openOrClose(false)
+        }
+        bottomMenuRenameTo.cancelButton.setOnClickListener {
+            openOrClose(false)
+        }
 
         openOrClose(true)
     }
@@ -250,12 +266,12 @@ class BottomMenuController(private val mainActivity: MainActivity) : CoroutineSc
         openOrClose(true)
     }
     fun showCompress() {
-        val menu = clearHeaderAndMenu()
-        bottomMenuCompressTo = BottomMenuCompressToBinding.bind(bottomMenu.inflateHeaderView(R.layout.bottom_menu_compress_to))
+        clearHeaderAndMenu()
+        val bottomMenuCompressTo = BottomMenuCompressToBinding.bind(bottomMenu.inflateHeaderView(R.layout.bottom_menu_compress_to))
         val dataItem = FileUtils.getDataItemFromIndex(mainActivity.getCurrentPosition())
 
         bottomMenuCompressTo.name.doOnTextChanged { _, _, _, _ ->
-            if(menu.findItem(Id.YES).isEnabled != bottomMenuCompressTo.name.text!!.isNotEmpty()) menu.findItem(Id.YES).isEnabled = bottomMenuCompressTo.name.text!!.isNotEmpty()
+            bottomMenuCompressTo.compressButton.isEnabled = bottomMenuCompressTo.name.text!!.isNotEmpty()
         }
         bottomMenuCompressTo.name.post {
             bottomMenuCompressTo.name.setText(dataItem.selectedItems.values.first().nameWithoutExtension)
@@ -273,16 +289,34 @@ class BottomMenuController(private val mainActivity: MainActivity) : CoroutineSc
             }
         }
 
-        menu.add(GroupId.COMPRESS, Id.YES, 0, "Compress").isEnabled = false
-        menu.add(GroupId.COMPRESS, Id.NO, 0, "Cancel")
+        bottomMenuCompressTo.compressButton.setOnClickListener {
+            val name = bottomMenuCompressTo.name.text.toString()
+
+            val path = when(bottomMenuCompressTo.pathChoise.checkedRadioButtonId) {
+                R.id.custom_location -> bottomMenuCompressTo.path.text.toString()
+                else -> dataItem.path
+            }
+
+            when(bottomMenuCompressTo.formatChoise.checkedRadioButtonId) {
+                R.id.zip -> mainActivity.launch(Dispatchers.IO){ FileUtils.zip(dataItem.selectedItems.values.toList(), File(path, name + if(!name.endsWith(".zip")) ".zip" else "")) }
+                R.id.seven_z -> TODO()
+            }
+
+            mainActivity.getCurrentFileManagerAdapter().switchMode(TabDataItem.FileTabDataItem.Mode.None)
+            openOrClose(false)
+        }
+        bottomMenuCompressTo.cancelButton.setOnClickListener {
+            openOrClose(false)
+        }
 
         openOrClose(true)
     }
     fun showExtractTo() {
-        val menu = clearHeaderAndMenu()
-        bottomMenuCompressTo = BottomMenuCompressToBinding.bind(bottomMenu.inflateHeaderView(R.layout.bottom_menu_compress_to))
+        clearHeaderAndMenu()
+        val bottomMenuCompressTo = BottomMenuCompressToBinding.bind(bottomMenu.inflateHeaderView(R.layout.bottom_menu_compress_to))
         val dataItem = FileUtils.getDataItemFromIndex(mainActivity.getCurrentPosition())
 
+        bottomMenuCompressTo.title.text = mainActivity.getString(R.string.extract_to)
         bottomMenuCompressTo.textName.visibility = View.GONE
         bottomMenuCompressTo.formatChoise.visibility = View.GONE
         bottomMenuCompressTo.currentLocationFolder.visibility = View.VISIBLE
@@ -302,8 +336,22 @@ class BottomMenuController(private val mainActivity: MainActivity) : CoroutineSc
             }
         }
 
-        menu.add(GroupId.EXTRACT_TO, Id.YES, 0, "Extract To")
-        menu.add(GroupId.EXTRACT_TO, Id.NO, 0, "Cancel")
+        bottomMenuCompressTo.compressButton.text = mainActivity.getString(R.string.extract_to)
+        bottomMenuCompressTo.compressButton.setOnClickListener {
+            val path = when(bottomMenuCompressTo.pathChoise.checkedRadioButtonId) {
+                R.id.current_location_folder -> File(dataItem.path, dataItem.selectedItems.values.first().nameWithoutExtension).absolutePath
+                R.id.custom_location -> bottomMenuCompressTo.path.text.toString()
+                else -> dataItem.path
+            }
+
+            FileUtils.unZip(dataItem.selectedItems.values.first(), File(path))
+
+            mainActivity.getCurrentFileManagerAdapter().switchMode(TabDataItem.FileTabDataItem.Mode.None)
+            openOrClose(false)
+        }
+        bottomMenuCompressTo.cancelButton.setOnClickListener {
+            openOrClose(false)
+        }
 
         openOrClose(true)
     }

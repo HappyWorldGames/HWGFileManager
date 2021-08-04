@@ -24,4 +24,7 @@
     <string name="current_location">Current location</string>
     <string name="custom_location">Custom location</string>
     <string name="path">Path</string>
+    <string name="cancel">Cancel</string>
+    <string name="create_file_or_folder">Create File Or Folder</string>
+    <string name="create">Create</string>
 </resources>

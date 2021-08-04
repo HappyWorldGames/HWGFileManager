@@ -3,6 +3,11 @@
     <style name="Widget.App.ActionMode" parent="Widget.AppCompat.ActionMode">
         <item name="titleTextStyle">?attr/textAppearanceHeadline6</item>
         <item name="subtitleTextStyle">?attr/textAppearanceSubtitle1</item>
-        <item name="background">@color/material_grey_900</item>
+        <item name="background">@color/black_background</item>
+    </style>
+    <style name="Widget.App.ActionMode.Light" parent="Widget.AppCompat.ActionMode">
+        <item name="titleTextStyle">?attr/textAppearanceHeadline6</item>
+        <item name="subtitleTextStyle">?attr/textAppearanceSubtitle1</item>
+        <item name="background">@color/light_background</item>
     </style>
 </resources>

@@ -23,6 +23,12 @@ import kotlin.coroutines.CoroutineContext
 class FilesRecyclerViewAdapter(private val backButton: Button, var tabPosition: Int = 0, private val onSwitchSelectMode: SwitchSelectModeListener) : RecyclerView.Adapter<FilesRecyclerViewAdapter.MyViewHolder>(), CoroutineScope {
     override val coroutineContext: CoroutineContext = Dispatchers.IO + SupervisorJob()
 
+    sealed class NotifyItemMode {
+        data class Change(val index: Int, val count: Int): NotifyItemMode()
+        data class Remove(val index: List<Int>): NotifyItemMode()
+        data class Insert(val index: Int): NotifyItemMode()
+    }
+
     private lateinit var parentView: View
     private lateinit var context: Context
 
@@ -47,14 +53,21 @@ class FilesRecyclerViewAdapter(private val backButton: Button, var tabPosition: 
         }
         switchMode(TabDataItem.FileTabDataItem.Mode.None)
     }
-    fun switchMode(mode: TabDataItem.FileTabDataItem.Mode) {
+    fun switchMode(mode: TabDataItem.FileTabDataItem.Mode, notifyItemMode: NotifyItemMode = NotifyItemMode.Change(0, itemCount)) {
         if(getMode() == mode) return
         getDataItem().mode = mode
         if(mode == TabDataItem.FileTabDataItem.Mode.Select) getDataItem().selectedItems.clear()
         else if(mode == TabDataItem.FileTabDataItem.Mode.Search) getDataItem().searchItems.clear()
         onSwitchSelectMode.onSwitch(mode)
 
-        notifyItemRangeChanged(0, itemCount)
+        notifyItemMode(notifyItemMode)
+    }
+    private fun notifyItemMode(notifyItemMode: NotifyItemMode) {
+        when(notifyItemMode) {
+            is NotifyItemMode.Change -> notifyItemRangeChanged(notifyItemMode.index, notifyItemMode.count)
+            is NotifyItemMode.Remove -> { notifyItemMode.index.forEachIndexed { index, value -> notifyItemRemoved(value - index) }; notifyItemMode(NotifyItemMode.Change(0, itemCount)) }
+            is NotifyItemMode.Insert -> notifyItemInserted(notifyItemMode.index)
+        }
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MyViewHolder {

@@ -13,6 +13,7 @@ import android.os.Environment
 import android.provider.Settings
 import android.text.InputType
 import android.view.*
+import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.PopupMenu
 import androidx.annotation.RequiresApi
@@ -29,7 +30,6 @@ import com.happyworldgames.filemanager.data.DataBase
 import com.happyworldgames.filemanager.data.FileUtils
 import com.happyworldgames.filemanager.data.TabDataItem
 import com.happyworldgames.filemanager.databinding.ActivityMainBinding
-import com.happyworldgames.filemanager.databinding.AlertDialogRenameBinding
 import com.happyworldgames.filemanager.view.BottomMenuController
 import com.happyworldgames.filemanager.view.files.FilesRecyclerViewAdapter
 import com.happyworldgames.filemanager.view.viewpager.PagerAdapter
@@ -39,6 +39,7 @@ import java.lang.reflect.Method
 import java.util.*
 import kotlin.coroutines.CoroutineContext
 import kotlin.system.exitProcess
+
 
 class MainActivity : AppCompatActivity(), CoroutineScope {
     companion object {
@@ -217,8 +218,8 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
                     when (it.itemId) {
                         R.id.copy -> FileUtils.copy(getCurrentPosition())
                         R.id.cut -> FileUtils.cut(getCurrentPosition())
-                        R.id.delete -> showAlertDelete()
-                        R.id.rename -> showAlertRename()
+                        R.id.delete -> showDelete()
+                        R.id.rename -> showRename()
                         R.id.more -> showPopupMenuMore()
                     }
                     when (it.itemId) {
@@ -302,7 +303,8 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
     }
 
     private fun showPopupMenuAddFileOrFolder(){
-        val popup = PopupMenu(this, activityMain.bottomAppBar)
+        bottomMenuController.showCreateFileOrFolder()
+        /*val popup = PopupMenu(this, activityMain.bottomAppBar)
         popup.apply {
             inflate(R.menu.popup_menu_add_file_or_folder)
 
@@ -339,7 +341,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
             }
         }
 
-        popup.show()
+        popup.show()*/
     }
     private fun showAlertCreateFileOrFolder(isFile: Boolean){
         val builder = AlertDialog.Builder(this)
@@ -387,46 +389,11 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
         bottomMenuController.showClipBoardMenu()
     }
 
-    private fun showAlertDelete() {
+    private fun showDelete() {
         bottomMenuController.showDelete()
     }
-    private fun showAlertRename() {
+    private fun showRename() {
         bottomMenuController.showRename()
-        /*
-        val builder = AlertDialog.Builder(this)
-
-        val selectedItems = FileUtils.getDataItemFromIndex(getCurrentPosition()).selectedItems.values.toList()
-        val multi = selectedItems.size > 1
-        if(multi) return
-
-        val layout: View = if(multi) AlertDialogRenameBinding.inflate(layoutInflater).apply {
-            TODO()
-        }.root else EditText(this).apply {
-            hint = "Enter Name"
-            setText(selectedItems[0].name)
-            inputType = InputType.TYPE_CLASS_TEXT
-            maxLines = 1
-        }
-        builder.apply {
-            setTitle(if(!multi) "Rename" else "Batch Rename")
-            setView(layout)
-            setPositiveButton("Rename") { _, _ ->
-                if (multi) {
-                    TODO()
-                } else {
-                    val editName = layout as EditText
-                    if (editName.text.toString() != "") FileUtils.rename(
-                        selectedItems[0],
-                        editName.text.toString()
-                    )
-                }
-
-                getCurrentFileManagerAdapter().switchMode(TabDataItem.FileTabDataItem.Mode.None)
-                refreshCurrentItem()
-            }
-            setNegativeButton("Cancel", null)
-        }
-        builder.show()*/
     }
     private fun showPopupMenuMore() {
         val popup = PopupMenu(this, activityMain.bottomAppBar)
@@ -492,4 +459,14 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
         bottomMenuController.showProperties()
     }
 
+    fun hideKeyboard() {
+        val imm: InputMethodManager = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+        //Find the currently focused view, so we can grab the correct window token from it.
+        var view = currentFocus
+        //If no view currently has focus, create a new one, just so we can grab a window token from it
+        if (view == null) {
+            view = View(this)
+        }
+        imm.hideSoftInputFromWindow(view.windowToken, 0)
+    }
 }
