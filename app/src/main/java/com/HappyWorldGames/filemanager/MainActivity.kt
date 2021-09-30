@@ -40,7 +40,6 @@ import java.util.*
 import kotlin.coroutines.CoroutineContext
 import kotlin.system.exitProcess
 
-
 class MainActivity : AppCompatActivity(), CoroutineScope {
     companion object {
         @SuppressLint("StaticFieldLeak")
@@ -55,7 +54,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
 
     val activityMain by lazy{ ActivityMainBinding.inflate(layoutInflater) }
     private val bottomMenuController by lazy { BottomMenuController(this) }
-    private val adapter by lazy { PagerAdapter(this, activityMain.pathButton, switchSelectModeListener)  }
+    private val adapter by lazy { PagerAdapter(this, activityMain, switchSelectModeListener)  }
     private val switchSelectModeListener = object : FilesRecyclerViewAdapter.SwitchSelectModeListener() {
         override fun onSwitch(mode: TabDataItem.FileTabDataItem.Mode) {
             if(actionMode == null) actionMode = activityMain.toolbar.startActionMode(callback)
@@ -74,7 +73,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
         }
 
         override fun onEnableOrDisableBottomAppBar(enable: Boolean) {
-            actionMode?.title = "${FileUtils.getDataItemFromIndex(getCurrentPosition()).selectedItems.values.size} selected"
+            actionMode?.title = "${FileUtils.getDataItemFilesFromIndex(getCurrentPosition()).selectedItems.values.size} selected"
 
             val menu = activityMain.bottomAppBar.menu
             if(menu.size() <= 0 && menu[0].isEnabled == enable) return
@@ -93,7 +92,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
     var actionMode: ActionMode? = null
     val callback = object : ActionMode.Callback {
         override fun onCreateActionMode(mode: ActionMode, menu: Menu): Boolean {
-            if(FileUtils.getDataItemFromIndex(getCurrentPosition()).mode == TabDataItem.FileTabDataItem.Mode.Select) menuInflater.inflate(R.menu.action_mode_select, menu)
+            if(FileUtils.getDataItemFilesFromIndex(getCurrentPosition()).mode == TabDataItem.FileTabDataItem.Mode.Select) menuInflater.inflate(R.menu.action_mode_select, menu)
             else {
                 var searchTask: Job? = null
                 val searchEditText = EditText(this@MainActivity)
@@ -102,7 +101,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
                     hint = "Search"
                     doAfterTextChanged {
                         searchTask?.cancel()
-                        val dataItem = FileUtils.getDataItemFromIndex(getCurrentPosition())
+                        val dataItem = FileUtils.getDataItemFilesFromIndex(getCurrentPosition())
                         if(searchEditText.toString() == "") {
                             dataItem.mode = TabDataItem.FileTabDataItem.Mode.None
                             getCurrentFileManagerAdapter().notifyDataSetChanged()
@@ -135,7 +134,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
         override fun onActionItemClicked(mode: ActionMode?, item: MenuItem): Boolean {
             return when (item.itemId) {
                 R.id.select_all -> {
-                    val dataItem = FileUtils.getDataItemFromIndex(getCurrentPosition())
+                    val dataItem = FileUtils.getDataItemFilesFromIndex(getCurrentPosition())
                     dataItem.selectedItems.clear()
                     item.isChecked = !item.isChecked
                     if(item.isChecked) {
@@ -186,11 +185,21 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
             override fun onPageSelected(position: Int) {
                 super.onPageSelected(position)
 
-                val path = File(FileUtils.getDataItemFromIndex(getCurrentPosition()).path)
-                activityMain.pathButton.text = (path.parentFile!!.name + "/" + path.name)
+                val dataItem = FileUtils.getDataItemFromIndex(getCurrentPosition())
+                activityMain.pathButton.text = when(dataItem){
+                    is TabDataItem.FileTabDataItem -> {
+                        activityMain.pathButton.isEnabled = true
+                        val path = File(dataItem.path)
+                        (path.parentFile!!.name + "/" + path.name)
+                    }
+                    is TabDataItem.HomeTabDataItem ->{
+                        activityMain.pathButton.isEnabled = false
+                        "Homepage"
+                    }
+                }
 
                 val menuId = when (DataBase.tabsBase[position].type) {
-                    R.layout.view_pager_files_item -> if (FileUtils.getDataItemFromIndex(getCurrentPosition()).mode != TabDataItem.FileTabDataItem.Mode.Select) R.menu.bottom_navigation_menu_files else R.menu.bottom_navigation_menu_files_edit
+                    R.layout.view_pager_files_item -> if (FileUtils.getDataItemFilesFromIndex(getCurrentPosition()).mode != TabDataItem.FileTabDataItem.Mode.Select) R.menu.bottom_navigation_menu_files else R.menu.bottom_navigation_menu_files_edit
                     R.layout.view_pager_homepage_item -> R.menu.bottom_navigation_menu_homepager
                     else -> null
                 }
@@ -273,7 +282,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
     private fun backOrCloseTab(fileManagerAdapter: FilesRecyclerViewAdapter?) = launch(Dispatchers.Main) {
         val curPos = getCurrentPosition()
         if(fileManagerAdapter != null) {
-            val historyItem = FileUtils.getDataItemFromIndex(curPos).history
+            val historyItem = FileUtils.getDataItemFilesFromIndex(curPos).history
             if(historyItem.size > 1) {
                 fileManagerAdapter.goTo(File(historyItem[historyItem.lastIndex - 1]), true)
                 historyItem.removeLast()
@@ -284,8 +293,14 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
         adapter.notifyItemRemoved(curPos)
         if(DataBase.tabsBase.size <= 0) exitProcess(0)
         else {
-            val path = File(FileUtils.getDataItemFromIndex(getCurrentPosition()).path)
-            activityMain.pathButton.text = (path.parentFile!!.name + "/" + path.name)
+            val dataItem = FileUtils.getDataItemFromIndex(getCurrentPosition())
+            activityMain.pathButton.text = when(dataItem){
+                is TabDataItem.FileTabDataItem -> {
+                    val path = File(dataItem.path)
+                    (path.parentFile!!.name + "/" + path.name)
+                }
+                is TabDataItem.HomeTabDataItem -> "Homepage"
+            }
         }
     }
 
@@ -359,7 +374,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
                 override fun onClick(dialog: DialogInterface?, which: Int) {
                     if(editName.text.toString() == "" || DataBase.tabsBase[getCurrentPosition()] !is TabDataItem.FileTabDataItem) return
 
-                    val file = File(FileUtils.getDataItemFromIndex(getCurrentPosition()).path, editName.text.toString())
+                    val file = File(FileUtils.getDataItemFilesFromIndex(getCurrentPosition()).path, editName.text.toString())
                     if(!file.parentFile!!.canWrite()) return
 
                     if(isFile) file.createNewFile()
@@ -380,8 +395,8 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
         adapter.notifyItemChanged(getCurrentPosition())
     }
     private fun switchViewCurrentItem() {
-        val viewType = FileUtils.getDataItemFromIndex(getCurrentPosition()).viewType
-        FileUtils.getDataItemFromIndex(getCurrentPosition()).viewType = if(viewType == TabDataItem.FileTabDataItem.ViewType.Grid) TabDataItem.FileTabDataItem.ViewType.Linear else TabDataItem.FileTabDataItem.ViewType.Grid
+        val viewType = FileUtils.getDataItemFilesFromIndex(getCurrentPosition()).viewType
+        FileUtils.getDataItemFilesFromIndex(getCurrentPosition()).viewType = if(viewType == TabDataItem.FileTabDataItem.ViewType.Grid) TabDataItem.FileTabDataItem.ViewType.Linear else TabDataItem.FileTabDataItem.ViewType.Grid
 
         refreshCurrentItem()
     }
@@ -400,7 +415,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
         popup.apply {
             inflate(R.menu.popup_menu_files_edit_more)
 
-            val selectItems = FileUtils.getDataItemFromIndex(getCurrentPosition()).selectedItems.values.toList()
+            val selectItems = FileUtils.getDataItemFilesFromIndex(getCurrentPosition()).selectedItems.values.toList()
             if(selectItems.size == 1 && FileUtils.checkIfFileHasExtension(selectItems[0].name, FileUtils.archiveExtensions)) menu.findItem(R.id.uncompress).isVisible = true
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) gravity = Gravity.END
@@ -444,7 +459,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
 
     private fun showShare() {
         try{
-            FileUtils.shareMultiple(this@MainActivity, FileUtils.getDataItemFromIndex(getCurrentPosition()).selectedItems.values.toList())
+            FileUtils.shareMultiple(this@MainActivity, FileUtils.getDataItemFilesFromIndex(getCurrentPosition()).selectedItems.values.toList())
         }catch (e: Throwable) {
             switchSelectModeListener.showSnackBar(if(e.toString().contains("Many items (>100)")) "Many items (>100)" else e.toString(), Snackbar.LENGTH_LONG)
         }

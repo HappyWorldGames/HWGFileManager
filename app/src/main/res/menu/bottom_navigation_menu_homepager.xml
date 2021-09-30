@@ -1,20 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
-    <item
+    <!--<item
         android:id="@+id/page_1"
         android:icon="@drawable/homepage"
         android:title="Add"
-        app:showAsAction="always"/>
-    <item
-        android:id="@+id/page_2"
-        android:icon="@drawable/sd_card"
-        android:title="Remove"
-        app:showAsAction="always"/>
-    <item
-        android:id="@+id/page_3"
-        android:icon="@drawable/homepage"
-        android:title="Add"
-        app:showAsAction="always"/>
+        app:showAsAction="always"/>-->
 
 </menu>

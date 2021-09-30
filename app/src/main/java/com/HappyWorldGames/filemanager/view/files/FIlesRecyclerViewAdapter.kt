@@ -34,7 +34,7 @@ class FilesRecyclerViewAdapter(private val backButton: Button, var tabPosition: 
 
     fun getMode(): TabDataItem.FileTabDataItem.Mode = getDataItem().mode
     fun getFilePath(): File = File(getDataItem().path)
-    private fun getDataItem() : TabDataItem.FileTabDataItem = FileUtils.getDataItemFromIndex(tabPosition)
+    private fun getDataItem() : TabDataItem.FileTabDataItem = FileUtils.getDataItemFilesFromIndex(tabPosition)
     /*
         Function for open file or directory
     */

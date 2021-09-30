@@ -58,8 +58,11 @@ class FileUtils {
             return sorted
         }
 
-        fun getDataItemFromIndex(index: Int): TabDataItem.FileTabDataItem {
-            val dataItem = DataBase.tabsBase[index]
+        fun getDataItemFromIndex(index: Int): TabDataItem {
+            return DataBase.tabsBase[index]
+        }
+        fun getDataItemFilesFromIndex(index: Int): TabDataItem.FileTabDataItem {
+            val dataItem = getDataItemFromIndex(index)
             if(dataItem !is TabDataItem.FileTabDataItem) throw Throwable("Is not FileTabDataItem")
             return dataItem
         }
@@ -170,10 +173,10 @@ class FileUtils {
         }
 
         fun copy(index: Int) {
-            DataBase.clipBoardBase.add(ClipBoardData(ClipBoardData.Type.COPY, getDataItemFromIndex(index).selectedItems.toMap()))
+            DataBase.clipBoardBase.add(ClipBoardData(ClipBoardData.Type.COPY, this.getDataItemFilesFromIndex(index).selectedItems.toMap()))
         }
         fun cut(index: Int) {
-            DataBase.clipBoardBase.add(ClipBoardData(ClipBoardData.Type.CUT, getDataItemFromIndex(index).selectedItems.toMap()))
+            DataBase.clipBoardBase.add(ClipBoardData(ClipBoardData.Type.CUT, this.getDataItemFilesFromIndex(index).selectedItems.toMap()))
         }
         suspend fun paste(context: Context, currentPage: Int, index: Int, requestOverWrite: (file: File, requestWrite: (i: Int) -> Unit) -> Unit) {
             paste(context, currentPage, DataBase.clipBoardBase[index], requestOverWrite)
@@ -190,7 +193,7 @@ class FileUtils {
             var waitRequest = false
             files.values.forEachIndexed pasteFor@{ progress, it ->
                 onUpdateNotify(progress)
-                val fileTo = File(getDataItemFromIndex(currentPage).path, it.name)
+                val fileTo = File(this.getDataItemFilesFromIndex(currentPage).path, it.name)
                 //need stop requestOverWrite when his show, and start when hide
                 if(fileTo.exists() && request){
                     waitRequest = true
@@ -221,7 +224,7 @@ class FileUtils {
             }
         }
         fun delete(index: Int) {
-            getDataItemFromIndex(index).selectedItems.values.forEach {
+            this.getDataItemFilesFromIndex(index).selectedItems.values.forEach {
                 delete(it)
             }
         }
