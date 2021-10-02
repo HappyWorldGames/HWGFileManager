@@ -208,7 +208,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
                 startActivity(intent)
             }
         }
-        else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) requestPermissions(arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE, android.Manifest.permission.WRITE_EXTERNAL_STORAGE), 1)
+        else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) requestPermissions(arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE, android.Manifest.permission.WRITE_EXTERNAL_STORAGE, if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) android.Manifest.permission.MANAGE_EXTERNAL_STORAGE else ""), 1)
         else startApp()
     }
 
@@ -236,7 +236,9 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
                         R.id.copy, R.id.cut -> getCurrentFileManagerAdapter().switchMode(TabDataItem.FileTabDataItem.Mode.None)
                     }
                 }
-                R.menu.bottom_navigation_menu_homepager -> TODO()
+                R.menu.bottom_navigation_menu_homepager -> when(it.itemId) {
+                    R.id.refresh -> refreshCurrentItem()
+                }
             }
             true
         }
@@ -253,8 +255,10 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
         }
         activityMain.pathButton.setOnClickListener {
             val fileManagerAdapter = getCurrentFileManagerAdapter()
-            if(fileManagerAdapter.getMode() != TabDataItem.FileTabDataItem.Mode.Select) fileManagerAdapter.goTo(fileManagerAdapter.getFilePath().parentFile!!)
-            else fileManagerAdapter.switchMode(TabDataItem.FileTabDataItem.Mode.None)
+            if(fileManagerAdapter.getMode() != TabDataItem.FileTabDataItem.Mode.Select){
+                val parentFile = fileManagerAdapter.getFilePath().parentFile
+                if(parentFile != null) fileManagerAdapter.goTo(parentFile)
+            }else fileManagerAdapter.switchMode(TabDataItem.FileTabDataItem.Mode.None)
         }
     }
 

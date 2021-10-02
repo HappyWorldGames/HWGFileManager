@@ -11,6 +11,7 @@ import com.happyworldgames.filemanager.data.FileUtils
 import com.happyworldgames.filemanager.data.TabDataItem
 import com.happyworldgames.filemanager.databinding.RecyclerviewItemHomesStorageBinding
 import com.happyworldgames.filemanager.view.viewpager.PagerAdapter
+import java.io.File
 
 class HomesRecyclerViewAdapter(private val pagerAdapter: PagerAdapter) : RecyclerView.Adapter<HomesRecyclerViewAdapter.MyViewHolder>() {
 
@@ -23,13 +24,23 @@ class HomesRecyclerViewAdapter(private val pagerAdapter: PagerAdapter) : Recycle
         holder.bind(position)
     }
 
-    override fun getItemCount(): Int = FileUtils.ExternalStorage.getAllStorageLocations()!!.size //if(Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) 2 else 1
+    override fun getItemCount(): Int = getItems().size
+
+    private fun getItems(): ArrayList<File> {
+        val file = File("/storage").listFiles()!!
+        val files = ArrayList<File>()
+        file.forEach {
+            if(it.name != "self") if(it.name == "emulated") files.add(0, File("/storage/emulated/0"))
+            else files.add(it)
+        }
+        return files
+    }
 
     inner class StorageViewHolder(itemView: View, pagerAdapter: PagerAdapter) : MyViewHolder(itemView) {
         private val recyclerviewItemHomesStorageBinding = RecyclerviewItemHomesStorageBinding.bind(itemView)
 
         override fun bind(position: Int) {
-            val dataItem = FileUtils.ExternalStorage.getAllStorageLocations()?.values!!.toList()
+            val dataItem = getItems()
 
             recyclerviewItemHomesStorageBinding.root.setOnClickListener {
                 DataBase.tabsBase.add(TabDataItem.FileTabDataItem(R.layout.view_pager_files_item, dataItem[position].absolutePath, TabDataItem.FileTabDataItem.ViewType.Grid))
@@ -37,18 +48,13 @@ class HomesRecyclerViewAdapter(private val pagerAdapter: PagerAdapter) : Recycle
                 pagerAdapter.notifyItemInserted(pos)
                 pagerAdapter.activityMainBinding.pager.currentItem = pos
             }
-            recyclerviewItemHomesStorageBinding.sdName.text = dataItem[position].name /*when(position){
-                0 -> "Phone"
-                else -> "Memory Card"
-            }*/
-            val statFs = StatFs(dataItem[position].absolutePath) /*when(position){
-                0 -> StatFs(itemView.context.getExternalFilesDir(null)?.absolutePath)
-                else -> StatFs(itemView.context.getExternalFilesDir(Environment.MEDIA_MOUNTED)?.absolutePath)
-            }*/
-            val txt = "${FileUtils.humanReadableByteCountBin(statFs.availableBytes)} / ${FileUtils.humanReadableByteCountBin(statFs.totalBytes)}"
+            recyclerviewItemHomesStorageBinding.sdName.text = dataItem[position].name
+            val statFs = StatFs(dataItem[position].absolutePath)
+            val busySize = statFs.totalBytes - statFs.availableBytes
+            val txt = "${FileUtils.humanReadableByteCountBin(busySize)} / ${FileUtils.humanReadableByteCountBin(statFs.totalBytes)}"
             recyclerviewItemHomesStorageBinding.sdSize.text = txt
-            recyclerviewItemHomesStorageBinding.sdSizeProgress.max = statFs.totalBytes.toInt()
-            recyclerviewItemHomesStorageBinding.sdSizeProgress.progress = statFs.availableBytes.toInt()
+            recyclerviewItemHomesStorageBinding.sdSizeProgress.max = (statFs.totalBytes / 1024).toInt()
+            recyclerviewItemHomesStorageBinding.sdSizeProgress.progress = (busySize / 1024).toInt()
         }
     }
 

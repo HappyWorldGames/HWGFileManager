@@ -85,7 +85,7 @@ class FilesRecyclerViewAdapter(private val backButton: Button, var tabPosition: 
         holder.bind(position)
     }
 
-    override fun getItemCount(): Int = if(getFilePath().exists()&&getMode() != TabDataItem.FileTabDataItem.Mode.Search) getFilePath().listFiles()!!.size else getDataItem().searchItems.size
+    override fun getItemCount(): Int = if(getFilePath().exists()&&getMode() != TabDataItem.FileTabDataItem.Mode.Search) getFilePath().listFiles()?.size ?: 0 else getDataItem().searchItems.size
 
     inner class IconViewHolder(itemView: View) : MyViewHolder(itemView){
         private val recyclerviewItemFilesLargeIconBinding: RecyclerviewItemFilesLargeIconBinding = RecyclerviewItemFilesLargeIconBinding.bind(itemView)

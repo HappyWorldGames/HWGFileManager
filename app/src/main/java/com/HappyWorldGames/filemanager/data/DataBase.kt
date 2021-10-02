@@ -16,7 +16,7 @@ import com.happyworldgames.filemanager.R
  */
 class DataBase(){
     companion object {
-        val tabsBase: ArrayList<TabDataItem> = arrayListOf(TabDataItem.HomeTabDataItem(R.layout.view_pager_homepage_item), TabDataItem.FileTabDataItem(R.layout.view_pager_files_item, "/sdcard", TabDataItem.FileTabDataItem.ViewType.Grid))
+        val tabsBase: ArrayList<TabDataItem> = arrayListOf(TabDataItem.HomeTabDataItem(R.layout.view_pager_homepage_item))
         val clipBoardBase: ArrayList<ClipBoardData> = arrayListOf()
     }
 }
