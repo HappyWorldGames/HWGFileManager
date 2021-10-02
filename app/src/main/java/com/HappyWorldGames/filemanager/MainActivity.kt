@@ -154,6 +154,39 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
             getCurrentFileManagerAdapter().switchMode(TabDataItem.FileTabDataItem.Mode.None)
         }
     }
+    private val onPageChangeCallback = object : ViewPager2.OnPageChangeCallback() {
+        override fun onPageSelected(position: Int) {
+            super.onPageSelected(position)
+
+            val dataItem = FileUtils.getDataItemFromIndex(getCurrentPosition())
+            activityMain.pathButton.text = when(dataItem){
+                is TabDataItem.FileTabDataItem -> {
+                    activityMain.pathButton.isEnabled = true
+                    val path = File(dataItem.path)
+                    (path.parentFile!!.name + "/" + path.name)
+                }
+                is TabDataItem.HomeTabDataItem ->{
+                    activityMain.pathButton.isEnabled = false
+                    "Homepage"
+                }
+            }
+
+            val menuId = when (DataBase.tabsBase[position].type) {
+                R.layout.view_pager_files_item -> if (FileUtils.getDataItemFilesFromIndex(getCurrentPosition()).mode != TabDataItem.FileTabDataItem.Mode.Select) R.menu.bottom_navigation_menu_files else R.menu.bottom_navigation_menu_files_edit
+                R.layout.view_pager_homepage_item -> R.menu.bottom_navigation_menu_homepager
+                else -> null
+            }
+            if (menuId != null) replaceBottomAppBar(menuId)
+
+            DataBase.tabsBase.forEachIndexed { index, tabDataItem ->
+                if (tabDataItem is TabDataItem.FileTabDataItem && tabDataItem.mode == TabDataItem.FileTabDataItem.Mode.Select) {
+                    tabDataItem.mode = TabDataItem.FileTabDataItem.Mode.None
+                    getFileManagerAdapter(index).notifyItemRangeChanged(0, getFileManagerAdapter(index).itemCount)
+                }
+            }
+            actionMode?.finish()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -181,39 +214,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
 
     private fun startApp() = launch(Dispatchers.Main) {
         activityMain.pager.adapter = adapter
-        activityMain.pager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
-            override fun onPageSelected(position: Int) {
-                super.onPageSelected(position)
-
-                val dataItem = FileUtils.getDataItemFromIndex(getCurrentPosition())
-                activityMain.pathButton.text = when(dataItem){
-                    is TabDataItem.FileTabDataItem -> {
-                        activityMain.pathButton.isEnabled = true
-                        val path = File(dataItem.path)
-                        (path.parentFile!!.name + "/" + path.name)
-                    }
-                    is TabDataItem.HomeTabDataItem ->{
-                        activityMain.pathButton.isEnabled = false
-                        "Homepage"
-                    }
-                }
-
-                val menuId = when (DataBase.tabsBase[position].type) {
-                    R.layout.view_pager_files_item -> if (FileUtils.getDataItemFilesFromIndex(getCurrentPosition()).mode != TabDataItem.FileTabDataItem.Mode.Select) R.menu.bottom_navigation_menu_files else R.menu.bottom_navigation_menu_files_edit
-                    R.layout.view_pager_homepage_item -> R.menu.bottom_navigation_menu_homepager
-                    else -> null
-                }
-                if (menuId != null) replaceBottomAppBar(menuId)
-
-                DataBase.tabsBase.forEachIndexed { index, tabDataItem ->
-                    if (tabDataItem is TabDataItem.FileTabDataItem && tabDataItem.mode == TabDataItem.FileTabDataItem.Mode.Select) {
-                        tabDataItem.mode = TabDataItem.FileTabDataItem.Mode.None
-                        getFileManagerAdapter(index).notifyItemRangeChanged(0, getFileManagerAdapter(index).itemCount)
-                    }
-                }
-                actionMode?.finish()
-            }
-        })
+        activityMain.pager.registerOnPageChangeCallback(onPageChangeCallback)
         activityMain.bottomAppBar.setOnItemSelectedListener {
             when(previousMenuIdBottomAppBar) {
                 R.menu.bottom_navigation_menu_files -> when(it.itemId){
@@ -301,6 +302,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
                 }
                 is TabDataItem.HomeTabDataItem -> "Homepage"
             }
+            onPageChangeCallback.onPageSelected(activityMain.pager.currentItem)
         }
     }
 
