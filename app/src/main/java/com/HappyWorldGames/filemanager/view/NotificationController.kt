@@ -21,17 +21,20 @@ class NotificationController(private val context: Context) {
         PendingIntent.getActivity(context, 0, notificationIntent, 0)
     }
 
+    val notifyId = Random(10293847).nextInt()
+    var notification: Notification? = null
     fun createNotifyFile(clipBoardData: ClipBoardData): (progress: Int) -> Unit {
-        val notifyId = Random(10293847).nextInt()
         val maxProgress = clipBoardData.files.size - 1
 
-        val channelId = if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) createNotificationChannel(channelName = clipBoardData.type.name) else ""
+        val channelId = if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) createNotificationChannel(channelName = /*clipBoardData.type.name*/"Paste File Progress") else ""
         val notificationBuilder = NotificationCompat.Builder(context, channelId)
         notificationBuilder.setContentTitle("${clipBoardData.type.name.lowercase()} files")
             .setProgress(maxProgress, 0, false)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentIntent(pendingIntent)
-        notifyManager.notify(notifyId, notificationBuilder.build())
+        //notifyManager.notify(notifyId, notificationBuilder.build())
+
+        notification = notificationBuilder.build()
 
         return { progress ->
             if(progress >= maxProgress) notificationBuilder.setProgress(0, 0, false).setContentText("Complete")
