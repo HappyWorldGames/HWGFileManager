@@ -28,8 +28,8 @@ import java.util.zip.ZipOutputStream
 import kotlin.collections.ArrayList
 import kotlin.math.roundToInt
 import android.os.Environment
+import com.happyworldgames.filemanager.FilesForegroundService
 import java.lang.Exception
-
 
 class FileUtils {
 
@@ -181,50 +181,18 @@ class FileUtils {
         fun cut(index: Int) {
             DataBase.clipBoardBase.add(ClipBoardData(ClipBoardData.Type.CUT, this.getDataItemFilesFromIndex(index).selectedItems.toMap()))
         }
-        suspend fun paste(context: Context, currentPage: Int, index: Int, requestOverWrite: (file: File, requestWrite: (i: Int) -> Unit) -> Unit) {
-            paste(context, currentPage, DataBase.clipBoardBase[index], requestOverWrite)
-        }
-        private suspend fun paste(context: Context, currentPage: Int, clipBoardData: ClipBoardData, requestOverWrite: (file: File, requestWrite: (i: Int) -> Unit) -> Unit) {
-            val type = clipBoardData.type
-            val files = clipBoardData.files
 
-            var request = true
-            var overWrite = false
-            val onUpdateNotify = NotificationController(context).createNotifyFile(clipBoardData)
+        var staticRequestOverWrite: ((file: File, requestWrite: (i: Int) -> Unit) -> Unit)? = null
+        fun paste(context: Context, currentPage: Int, clipBoardDataIndex: Int, requestOverWrite: (file: File, requestWrite: (i: Int) -> Unit) -> Unit) {
+            val intent = Intent(context, FilesForegroundService::class.java)
 
-            var breakFor = false
-            var waitRequest = false
-            files.values.forEachIndexed pasteFor@{ progress, it ->
-                onUpdateNotify(progress)
-                val fileTo = File(this.getDataItemFilesFromIndex(currentPage).path, it.name)
-                //need stop requestOverWrite when his show, and start when hide
-                if(fileTo.exists() && request){
-                    waitRequest = true
-                    requestOverWrite(fileTo) { result ->
-                        overWrite = when (result) {
-                            1 -> true
-                            2 -> { request = false; false }
-                            3 -> { request = false; true }
-                            4 -> { breakFor = true; false }
-                            else -> false
-                        }
-                        try {
-                            it.copyTo(fileTo, overWrite)
-                            if (overWrite && type == ClipBoardData.Type.CUT) it.delete()
-                        } catch (e: Throwable) { e.printStackTrace() }
-                        waitRequest = false
-                    }
-                }else try {
-                    it.copyTo(fileTo, overWrite)
-                    if(overWrite && type == ClipBoardData.Type.CUT) it.delete()
-                }catch (e: Throwable){ e.printStackTrace() }
-                while (waitRequest) delay(200)
-                if(breakFor) return@pasteFor
+            staticRequestOverWrite = requestOverWrite
+            intent.apply {
+                putExtra("current_page", currentPage)
+                putExtra("clip_board_data_index", clipBoardDataIndex)
             }
-            if(type == ClipBoardData.Type.CUT) DataBase.clipBoardBase.remove(clipBoardData)
-            withContext (Dispatchers.Main) {
-                (MainActivity.context as MainActivity).refreshCurrentItem()
-            }
+
+            context.startService(intent)
         }
         fun delete(index: Int) {
             this.getDataItemFilesFromIndex(index).selectedItems.values.forEach {
