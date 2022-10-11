@@ -5,7 +5,7 @@
     android:layout_height="match_parent">
 
     <TextView
-        android:id="@+id/textView"
+        android:id="@+id/storage_name"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Original Name"
@@ -18,7 +18,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text=" + "
-        app:layout_constraintLeft_toRightOf="@id/textView"
+        app:layout_constraintLeft_toRightOf="@id/storage_name"
         app:layout_constraintTop_toTopOf="@id/txt"
         app:layout_constraintBottom_toBottomOf="@id/txt"/>
 

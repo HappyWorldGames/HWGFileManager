@@ -1,2 +1,3 @@
 rootProject.name = "HWG File Manager"
 include ':app'
+include ':files'

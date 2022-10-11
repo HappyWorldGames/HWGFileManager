@@ -1,5 +1,9 @@
 <resources>
     <string name="app_name">HWG File Manager</string>
+
+    <string name="request_permission_text">App need some permissions</string>
+    <string name="request_permission_button_text">Request</string>
+
     <string name="icon">icon</string>
     <string name="name">name</string>
     <string name="close_tab">Close Tab</string>
@@ -27,4 +31,10 @@
     <string name="cancel">Cancel</string>
     <string name="create_file_or_folder">Create File Or Folder</string>
     <string name="create">Create</string>
+
+    <string name="button_new">new</string>
+    <string name="button_search">search</string>
+    <string name="button_refresh">refresh</string>
+    <string name="button_view">view</string>
+    <string name="up_folder_button">up</string>
 </resources>
